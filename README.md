@@ -9,7 +9,7 @@ This fork starts with a security hardening pass. Read the [audit and advisory in
 Public images for Linux `amd64` and `arm64` are published to [GHCR](https://github.com/dawidpiotrowski/filebrowser-ng/pkgs/container/filebrowser-ng):
 
 ```sh
-docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.1
+docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.2
 docker compose up -d
 ```
 

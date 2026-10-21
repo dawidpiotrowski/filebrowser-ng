@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.64.0-ng.2](https://github.com/dawidpiotrowski/filebrowser-ng/compare/v2.64.0-ng.1...v2.64.0-ng.2) (2026-10-21)
+
+### Bug Fixes
+
+* Remove the upstream archival notice from the maintained fork's settings pages and delete its unused translations in all nine affected locales.
+
 ## [2.63.23](https://github.com/filebrowser/filebrowser/compare/v2.63.22...v2.63.23) (2026-07-27)
 ## [2.63.22](https://github.com/filebrowser/filebrowser/compare/v2.63.21...v2.63.22) (2026-07-27)
 
