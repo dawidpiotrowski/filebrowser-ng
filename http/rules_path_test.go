@@ -65,9 +65,16 @@ func TestRuleDeniesCaseVariantWhenFsIsCaseInsensitive(t *testing.T) {
 		}
 	})
 
-	t.Run("case variant is a distinct path on a case-sensitive filesystem", func(t *testing.T) {
-		if rec := get("/secret.TXT", false); rec.Code == http.StatusForbidden {
-			t.Error("GET /secret.TXT = 403 with folding off; the rule must not widen on a case-sensitive filesystem")
+	t.Run("lexical case variant is distinct with folding disabled", func(t *testing.T) {
+		set, err := st.Settings.Get()
+		if err != nil {
+			t.Fatal(err)
+		}
+		// No physical alias resolution here: Windows canonicalizes on-disk case,
+		// which can legitimately make the resolved target fail the deny rule.
+		d := &data{settings: set, server: &settings.Server{}, user: &users.User{}}
+		if !d.CheckRules("/secret.TXT") {
+			t.Fatal("lexical rule widened with case folding disabled")
 		}
 	})
 }

@@ -82,6 +82,8 @@ var resourceGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 
 func resourceDeleteHandler(fileCache FileCache) handleFunc {
 	return withUser(func(_ http.ResponseWriter, r *http.Request, d *data) (int, error) {
+		shareMutation.Lock()
+		defer shareMutation.Unlock()
 		if r.URL.Path == "/" || !d.user.Perm.Delete {
 			return http.StatusForbidden, nil
 		}
@@ -147,7 +149,12 @@ func resourcePostHandler(fileCache FileCache) handleFunc {
 			ReadHeader: d.server.TypeDetectionByHeader,
 			Checker:    d,
 		})
+		if err != nil && !os.IsNotExist(err) {
+			return errToStatus(err), err
+		}
+		flags := os.O_WRONLY | os.O_CREATE | os.O_EXCL
 		if err == nil {
+			flags = os.O_WRONLY | os.O_TRUNC
 			if file.IsDir || !file.Mode.IsRegular() {
 				return http.StatusBadRequest, nil
 			}
@@ -167,7 +174,7 @@ func resourcePostHandler(fileCache FileCache) handleFunc {
 		}
 
 		err = d.RunHook(func() error {
-			info, writeErr := writeFile(d.user.Fs, r.URL.Path, r.Body, d.settings.FileMode, d.settings.DirMode)
+			info, writeErr := writeFile(d.user.Fs, r.URL.Path, r.Body, d.settings.FileMode, d.settings.DirMode, flags)
 			if writeErr != nil {
 				return writeErr
 			}
@@ -200,7 +207,7 @@ var resourcePutHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 	}
 
 	err = d.RunHook(func() error {
-		info, writeErr := writeFile(d.user.Fs, r.URL.Path, r.Body, d.settings.FileMode, d.settings.DirMode)
+		info, writeErr := writeFile(d.user.Fs, r.URL.Path, r.Body, d.settings.FileMode, d.settings.DirMode, os.O_WRONLY|os.O_TRUNC)
 		if writeErr != nil {
 			return writeErr
 		}
@@ -337,14 +344,16 @@ func addVersionSuffix(source string, afs afero.Fs) string {
 	return source
 }
 
-func writeFile(afs afero.Fs, dst string, in io.Reader, fileMode, dirMode fs.FileMode) (os.FileInfo, error) {
-	dir, _ := path.Split(dst)
-	err := afs.MkdirAll(dir, dirMode)
-	if err != nil {
-		return nil, err
+func writeFile(afs afero.Fs, dst string, in io.Reader, fileMode, dirMode fs.FileMode, flags int) (os.FileInfo, error) {
+	if flags&os.O_CREATE != 0 {
+		dir, _ := path.Split(dst)
+		if err := afs.MkdirAll(dir, dirMode); err != nil {
+			return nil, err
+		}
 	}
-
-	file, err := afs.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, fileMode)
+	// Exclusive creation binds the permission decision to the syscall: a file
+	// appearing after stat must not be truncated by a Create-only request.
+	file, err := afs.OpenFile(dst, flags, fileMode)
 	if err != nil {
 		return nil, err
 	}
@@ -390,6 +399,8 @@ func patchAction(ctx context.Context, action, src, dst string, d *data, fileCach
 
 		return fileutils.Copy(d.user.Fs, src, dst, d.settings.FileMode, d.settings.DirMode)
 	case "rename":
+		shareMutation.Lock()
+		defer shareMutation.Unlock()
 		if !d.user.Perm.Rename {
 			return fberrors.ErrPermissionDenied
 		}

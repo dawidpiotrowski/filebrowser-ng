@@ -5,7 +5,7 @@ Local host: macOS arm64; compiler Go 1.27.3. Frontend package manager: pnpm 10.3
 | Check | Result |
 | --- | --- |
 | `go test -race -timeout 180s ./...` | PASS, all packages |
-| `go test -json ./...` | PASS, 221 tests/subtests passed, 0 skipped |
+| `go test -json ./...` | PASS, 222 tests/subtests passed, 0 skipped |
 | `go vet ./...` | PASS |
 | `govulncheck@v1.9.0 ./...` | Zero reachable vulnerabilities and zero vulnerable imported packages; one unused module package advisory (`x/crypto/openpgp`) |
 | `pnpm run lint` | PASS, no warnings |

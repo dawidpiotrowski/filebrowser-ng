@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
@@ -19,6 +20,9 @@ import (
 	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// shareMutation serializes share creation against invalidating filesystem mutations.
+var shareMutation sync.RWMutex
 
 // shareResponse is the client-facing representation of a share. It deliberately
 // omits the server-side secrets of share.Link — the bcrypt PasswordHash (which
@@ -157,6 +161,8 @@ var shareDeleteHandler = withPermShare(func(_ http.ResponseWriter, r *http.Reque
 })
 
 var sharePostHandler = withPermShare(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	shareMutation.RLock()
+	defer shareMutation.RUnlock()
 	if !d.Check(r.URL.Path) {
 		return http.StatusForbidden, nil
 	}

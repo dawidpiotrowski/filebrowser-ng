@@ -32,12 +32,26 @@ var (
 const maxSymlinkHops = 255
 
 func NewScopedFs(source afero.Fs, path string) *ScopedFs {
-	osBacked := source.Name() == "OsFs"
+	_, osBacked := source.(*afero.OsFs)
 	if s, ok := source.(*ScopedFs); ok {
 		osBacked = s.osBacked
 		source = s.base
-	} else if info, err := source.Stat(path); err == nil {
-		osBacked = info.Sys() != nil
+	} else if _, ok := source.(*afero.BasePathFs); ok {
+		// Unwrap returned BasePathFiles, never bypass custom/read-only adapters.
+		if info, err := source.Stat(path); err == nil && (info.IsDir() || info.Mode().IsRegular()) {
+			if f, err := source.Open(path); err == nil {
+				inner := f
+				for {
+					wrapped, ok := inner.(*afero.BasePathFile)
+					if !ok {
+						break
+					}
+					inner = wrapped.File
+				}
+				_, osBacked = inner.(*os.File)
+				_ = f.Close()
+			}
+		}
 	}
 	return &ScopedFs{base: afero.NewBasePathFs(source, path).(*afero.BasePathFs), osBacked: osBacked}
 }

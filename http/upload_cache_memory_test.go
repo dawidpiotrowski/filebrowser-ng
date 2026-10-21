@@ -15,9 +15,16 @@ func TestUploadExpiryNeverDeletesAReplacedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.cache.Set(path, memoryUploadEntry{size: 1, remove: func() error { return os.Remove(path) }}, time.Nanosecond)
-	c.cache.DeleteExpired()
-	if _, err := c.GetLength(path); err == nil {
-		t.Fatal("expired upload still active")
+	deadline := time.Now().Add(time.Second)
+	for {
+		c.cache.DeleteExpired()
+		if _, err := c.GetLength(path); err != nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("expired upload still active")
+		}
+		time.Sleep(10 * time.Millisecond) // Windows wall-clock resolution can exceed 1 ns.
 	}
 	content, err := os.ReadFile(path)
 	if err != nil || string(content) != "replacement" {

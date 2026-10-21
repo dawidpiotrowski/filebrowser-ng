@@ -88,7 +88,7 @@ func NewHandler(
 
 	api.Handle("/shares", monkey(shareListHandler, "")).Methods("GET")
 	api.PathPrefix("/share").Handler(monkey(shareGetsHandler, "/api/share")).Methods("GET")
-	api.PathPrefix("/share").Handler(monkey(sharePostHandler, "/api/share")).Methods("POST")
+	api.PathPrefix("/share").Handler(monkey(limitAuthentication(sharePostHandler), "/api/share")).Methods("POST")
 	api.PathPrefix("/share").Handler(monkey(shareDeleteHandler, "/api/share")).Methods("DELETE")
 
 	api.Handle("/settings", monkey(settingsGetHandler, "")).Methods("GET")
