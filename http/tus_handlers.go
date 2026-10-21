@@ -66,6 +66,15 @@ func tusPostHandler(cache UploadCache) handleFunc {
 		if err != nil || uploadLength < 0 {
 			return http.StatusBadRequest, fmt.Errorf("invalid upload length")
 		}
+		// Check capability before creating or truncating any data. Production
+		// OS-backed roots provide stable file IDs; an abstract adapter may not.
+		rootInfo, err := d.user.Fs.Stat("/")
+		if err != nil {
+			return errToStatus(err), err
+		}
+		if !os.SameFile(rootInfo, rootInfo) {
+			return http.StatusNotImplemented, fmt.Errorf("resumable uploads require stable filesystem identity; use regular uploads with this filesystem")
+		}
 
 		unlock, err := lockUploadPath(cache, d, r.URL.Path)
 		if err != nil {
@@ -121,6 +130,13 @@ func tusPostHandler(cache UploadCache) handleFunc {
 			return errToStatus(err), err
 		}
 		defer openFile.Close()
+		identity, err := openFile.Stat()
+		if err != nil {
+			return http.StatusInternalServerError, err
+		}
+		if !os.SameFile(identity, identity) {
+			return http.StatusNotImplemented, fmt.Errorf("resumable uploads require stable filesystem identity")
+		}
 
 		file, err = files.NewFileInfo(&files.FileOptions{
 			Fs:         d.user.Fs,
@@ -135,13 +151,7 @@ func tusPostHandler(cache UploadCache) handleFunc {
 			return errToStatus(err), err
 		}
 
-		// Enables the user to utilize the PATCH endpoint for uploading file data.
-		// The removal callback deletes an abandoned upload through the user's
-		// scoped filesystem, so eviction cannot follow a symlink out of scope.
-		uploadPath := r.URL.Path
-		cache.Register(file.RealPath(), uploadLength, func() error {
-			return d.user.Fs.Remove(uploadPath)
-		})
+		cache.Register(file.RealPath(), UploadInfo{Length: uploadLength, OwnerID: d.user.ID, Identity: identity})
 
 		basePath := "/" + strings.Trim(strings.TrimSpace(d.server.BaseURL), "/")
 		if basePath == "/" {
@@ -178,13 +188,20 @@ func tusHeadHandler(cache UploadCache) handleFunc {
 			return errToStatus(err), err
 		}
 
-		uploadLength, err := cache.GetLength(file.RealPath())
+		upload, status, err := uploadForUser(cache, file.RealPath(), d.user.ID)
+		if status != 0 {
+			return status, err
+		}
+		identity, err := d.user.Fs.Stat(r.URL.Path)
 		if err != nil {
-			return http.StatusNotFound, err
+			return errToStatus(err), err
+		}
+		if !os.SameFile(upload.Identity, identity) {
+			return http.StatusConflict, fmt.Errorf("upload target was replaced")
 		}
 
 		w.Header().Set("Upload-Offset", strconv.FormatInt(file.Size, 10))
-		w.Header().Set("Upload-Length", strconv.FormatInt(uploadLength, 10))
+		w.Header().Set("Upload-Length", strconv.FormatInt(upload.Length, 10))
 
 		return http.StatusOK, nil
 	})
@@ -238,10 +255,11 @@ func tusPatchUpload(w http.ResponseWriter, r *http.Request, d *data, cache Uploa
 		return errToStatus(err), err
 	}
 
-	uploadLength, err := cache.GetLength(file.RealPath())
-	if err != nil {
-		return http.StatusNotFound, err
+	upload, status, err := uploadForUser(cache, file.RealPath(), d.user.ID)
+	if status != 0 {
+		return status, err
 	}
+	uploadLength := upload.Length
 
 	if uploadOffset > uploadLength {
 		return http.StatusBadRequest, fmt.Errorf("upload offset %d exceeds declared length %d", uploadOffset, uploadLength)
@@ -267,6 +285,16 @@ func tusPatchUpload(w http.ResponseWriter, r *http.Request, d *data, cache Uploa
 		return http.StatusInternalServerError, fmt.Errorf("could not open file: %w", err)
 	}
 	defer openFile.Close()
+	identity, err := openFile.Stat()
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	if !os.SameFile(upload.Identity, identity) {
+		return http.StatusConflict, fmt.Errorf("upload target was replaced")
+	}
+	if identity.Size() != uploadOffset {
+		return http.StatusConflict, fmt.Errorf("upload offset changed before write")
+	}
 
 	_, err = openFile.Seek(uploadOffset, 0)
 	if err != nil {
@@ -344,9 +372,16 @@ func tusDeleteHandler(cache UploadCache) handleFunc {
 			return errToStatus(err), err
 		}
 
-		_, err = cache.GetLength(file.RealPath())
+		upload, status, err := uploadForUser(cache, file.RealPath(), d.user.ID)
+		if status != 0 {
+			return status, err
+		}
+		identity, err := d.user.Fs.Stat(r.URL.Path)
 		if err != nil {
-			return http.StatusNotFound, err
+			return errToStatus(err), err
+		}
+		if !os.SameFile(upload.Identity, identity) {
+			return http.StatusConflict, fmt.Errorf("upload target was replaced")
 		}
 
 		if file.IsDir || !file.Mode.IsRegular() {
@@ -364,6 +399,17 @@ func tusDeleteHandler(cache UploadCache) handleFunc {
 
 		return http.StatusNoContent, nil
 	})
+}
+
+func uploadForUser(cache UploadCache, path string, ownerID uint) (UploadInfo, int, error) {
+	upload, err := cache.Get(path)
+	if err != nil {
+		return UploadInfo{}, http.StatusNotFound, err
+	}
+	if upload.OwnerID != ownerID {
+		return UploadInfo{}, http.StatusForbidden, nil
+	}
+	return upload, 0, nil
 }
 
 func getUploadLength(r *http.Request) (int64, error) {

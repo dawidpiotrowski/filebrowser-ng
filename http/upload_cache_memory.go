@@ -3,6 +3,7 @@ package fbhttp
 import (
 	"fmt"
 	"hash/fnv"
+	"os"
 	"sync"
 	"time"
 
@@ -18,15 +19,15 @@ type UploadCache interface {
 	// Lock serializes mutations of one upload across stat/check/write/complete.
 	Lock(filePath string) (unlock func(), err error)
 
-	// Register stores an upload with its expected file size. The legacy removal
-	// callback is ignored: expiry must not delete a subsequently replaced file.
-	Register(filePath string, fileSize int64, remove func() error)
+	// Register binds an upload to its creator and the identity obtained from the
+	// opened file handle. Expiry never removes filesystem data.
+	Register(filePath string, upload UploadInfo)
 
 	// Complete removes an upload from the cache
 	Complete(filePath string)
 
-	// GetLength returns the expected file size for an active upload
-	GetLength(filePath string) (int64, error)
+	// Get returns server-only metadata for an active upload.
+	Get(filePath string) (UploadInfo, error)
 
 	// Touch refreshes the TTL for an active upload
 	Touch(filePath string)
@@ -35,39 +36,41 @@ type UploadCache interface {
 	Close()
 }
 
-// memoryUploadEntry is the value stored for each active upload.
-type memoryUploadEntry struct {
-	size   int64
-	remove func() error
+// UploadInfo is server-only authorization state. Identity comes from the opened
+// file's Stat, not a pathname that another writer might replace.
+type UploadInfo struct {
+	Length   int64
+	OwnerID  uint
+	Identity os.FileInfo
 }
 
 // memoryUploadCache is an upload cache for single replica deployments
 type memoryUploadCache struct {
-	cache *ttlcache.Cache[string, memoryUploadEntry]
+	cache *ttlcache.Cache[string, UploadInfo]
 }
 
 func newMemoryUploadCache() *memoryUploadCache {
-	cache := ttlcache.New[string, memoryUploadEntry]()
+	cache := ttlcache.New[string, UploadInfo]()
 
 	go cache.Start()
 
 	return &memoryUploadCache{cache: cache}
 }
 
-func (c *memoryUploadCache) Register(filePath string, fileSize int64, _ func() error) {
-	c.cache.Set(filePath, memoryUploadEntry{size: fileSize}, uploadCacheTTL)
+func (c *memoryUploadCache) Register(filePath string, upload UploadInfo) {
+	c.cache.Set(filePath, upload, uploadCacheTTL)
 }
 
 func (c *memoryUploadCache) Complete(filePath string) {
 	c.cache.Delete(filePath)
 }
 
-func (c *memoryUploadCache) GetLength(filePath string) (int64, error) {
+func (c *memoryUploadCache) Get(filePath string) (UploadInfo, error) {
 	item := c.cache.Get(filePath)
 	if item == nil {
-		return 0, fmt.Errorf("no active upload found for the given path")
+		return UploadInfo{}, fmt.Errorf("no active upload found for the given path")
 	}
-	return item.Value().size, nil
+	return item.Value(), nil
 }
 
 func (c *memoryUploadCache) Touch(filePath string) {

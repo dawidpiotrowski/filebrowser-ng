@@ -14,11 +14,11 @@ func TestUploadExpiryNeverDeletesAReplacedFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte("replacement"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	c.cache.Set(path, memoryUploadEntry{size: 1, remove: func() error { return os.Remove(path) }}, time.Nanosecond)
+	c.cache.Set(path, UploadInfo{Length: 1}, time.Nanosecond)
 	deadline := time.Now().Add(time.Second)
 	for {
 		c.cache.DeleteExpired()
-		if _, err := c.GetLength(path); err != nil {
+		if _, err := c.Get(path); err != nil {
 			break
 		}
 		if time.Now().After(deadline) {
