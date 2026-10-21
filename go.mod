@@ -78,3 +78,6 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
+
+// CVE-2023-36308: upstream has no fixed tag; pin the minimal compatible scanner fix.
+replace github.com/disintegration/imaging => github.com/kovidgoyal/imaging v0.0.0-20240322044727-68f6e7d85d4e

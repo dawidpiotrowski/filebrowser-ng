@@ -3,7 +3,9 @@ package img
 import (
 	"bytes"
 	"context"
+	"github.com/disintegration/imaging"
 	"image"
+	"image/color"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
@@ -442,5 +444,19 @@ func TestService_FormatFromExtension(t *testing.T) {
 			}
 			require.Equal(t, test.want, got)
 		})
+	}
+}
+
+// CVE-2023-36308: TIFF/Paletted pixels can name an index beyond the supplied
+// palette. The fixed scanner pads its lookup table to all 256 byte values.
+func TestMalformedPaletteDoesNotPanicInImageWorker(t *testing.T) {
+	palette := make(color.Palette, 65)
+	for i := range palette {
+		palette[i] = color.Black
+	}
+	in := &image.Paletted{Pix: []byte{70}, Stride: 1, Rect: image.Rect(0, 0, 1, 1), Palette: palette}
+	out := imaging.Grayscale(in)
+	if out.Bounds() != image.Rect(0, 0, 1, 1) || out.NRGBAAt(0, 0).A != 0 {
+		t.Fatal("malformed palette did not use safe fallback")
 	}
 }
