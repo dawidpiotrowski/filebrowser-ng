@@ -30,6 +30,7 @@ export async function fetch(url: string, signal?: AbortSignal) {
     throw e;
   }
   data.url = `/files${url}`;
+  data.etag = res.headers.get("ETag") || undefined;
 
   if (data.isDir) {
     if (!data.url.endsWith("/")) data.url += "/";
@@ -75,8 +76,13 @@ export async function remove(url: string) {
   return resourceAction(url, "DELETE");
 }
 
-export async function put(url: string, content = "") {
-  return resourceAction(url, "PUT", content);
+export async function put(url: string, content = "", etag?: string) {
+  url = removePrefix(url);
+  return fetchURL(`/api/resources${url}`, {
+    method: "PUT",
+    body: content,
+    headers: etag ? { "If-Match": etag } : {},
+  });
 }
 
 export function download(format: any, ...files: string[]) {

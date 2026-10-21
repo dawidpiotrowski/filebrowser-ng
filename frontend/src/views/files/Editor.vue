@@ -113,6 +113,7 @@ const router = useRouter();
 
 const editor = ref<Ace.Editor | null>(null);
 const fontSize = ref(parseInt(localStorage.getItem("editorFontSize") || "14"));
+const savedETag = ref(fileStore.req?.etag);
 
 const isPreview = ref(false);
 const previewContent = ref("");
@@ -213,7 +214,7 @@ onBeforeRouteUpdate((to, from, next) => {
     },
     saveAction: async () => {
       await save();
-      next();
+      if (editor.value?.session.getUndoManager().isClean()) next();
     },
   });
 });
@@ -271,8 +272,13 @@ const save = async (throwError?: boolean) => {
   buttons.loading("save");
 
   try {
-    await api.put(route.path, editor.value?.getValue());
-    editor.value?.session.getUndoManager().markClean();
+    const content = editor.value?.getValue();
+    const response = await api.put(route.path, content, savedETag.value);
+    savedETag.value = response.headers.get("ETag") || undefined;
+    if (fileStore.req) fileStore.req.etag = savedETag.value;
+    if (editor.value?.getValue() === content) {
+      editor.value?.session.getUndoManager().markClean();
+    }
     buttons.success(button);
   } catch (e: any) {
     buttons.done(button);

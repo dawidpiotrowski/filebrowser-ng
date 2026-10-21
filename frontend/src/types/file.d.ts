@@ -9,6 +9,7 @@ interface ResourceBase {
   isSymlink: boolean;
   type: ResourceType;
   url: string;
+  etag?: string;
 }
 
 interface Resource extends ResourceBase {
