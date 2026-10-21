@@ -26,8 +26,8 @@ var shareMutation sync.RWMutex
 
 // shareResponse is the client-facing representation of a share. It deliberately
 // omits the server-side secrets of share.Link — the bcrypt PasswordHash (which
-// would be crackable offline) and the bypass Token — exposing only whether the
-// share is password-protected via HasPassword.
+// would be crackable offline) and the persisted grant-binding Token — exposing
+// only whether the share is password-protected via HasPassword.
 type shareResponse struct {
 	Hash        string `json:"hash"`
 	Path        string `json:"path"`
@@ -187,36 +187,18 @@ var sharePostHandler = withPermShare(func(w http.ResponseWriter, r *http.Request
 		defer r.Body.Close()
 	}
 
-	bytes := make([]byte, 6)
-	_, err := rand.Read(bytes)
+	expire, err := shareExpiry(body, time.Now())
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+
+	bytes := make([]byte, 16)
+	_, err = rand.Read(bytes)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
 
-	str := base64.URLEncoding.EncodeToString(bytes)
-
-	var expire int64 = 0
-
-	if body.Expires != "" {
-		num, err := strconv.Atoi(body.Expires)
-		if err != nil {
-			return http.StatusInternalServerError, err
-		}
-
-		var add time.Duration
-		switch body.Unit {
-		case "seconds":
-			add = time.Second * time.Duration(num)
-		case "minutes":
-			add = time.Minute * time.Duration(num)
-		case "days":
-			add = time.Hour * 24 * time.Duration(num)
-		default:
-			add = time.Hour * time.Duration(num)
-		}
-
-		expire = time.Now().Add(add).Unix()
-	}
+	str := base64.RawURLEncoding.EncodeToString(bytes)
 
 	hash, status, err := getSharePasswordHash(body)
 	if err != nil {
@@ -248,6 +230,31 @@ var sharePostHandler = withPermShare(func(w http.ResponseWriter, r *http.Request
 	return renderJSON(w, r, toShareResponse(s))
 })
 
+func shareExpiry(body share.CreateBody, now time.Time) (int64, error) {
+	if body.Expires == "" {
+		return 0, nil
+	}
+	var unit time.Duration
+	switch body.Unit {
+	case "seconds":
+		unit = time.Second
+	case "minutes":
+		unit = time.Minute
+	case "", "hours":
+		unit = time.Hour
+	case "days":
+		unit = 24 * time.Hour
+	default:
+		return 0, fmt.Errorf("invalid share expiry unit: %w", fberrors.ErrInvalidRequestParams)
+	}
+	num, err := strconv.ParseUint(body.Expires, 10, 64)
+	const maxDuration = time.Duration(1<<63 - 1)
+	if err != nil || num == 0 || num > uint64(maxDuration/unit) {
+		return 0, fmt.Errorf("invalid or overflowing share expiry: %w", fberrors.ErrInvalidRequestParams)
+	}
+	return now.Add(time.Duration(num) * unit).Unix(), nil
+}
+
 func getSharePasswordHash(body share.CreateBody) (data []byte, statuscode int, err error) {
 	if body.Password == "" {
 		return nil, 0, nil
@@ -255,6 +262,9 @@ func getSharePasswordHash(body share.CreateBody) (data []byte, statuscode int, e
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
 	if err != nil {
+		if errors.Is(err, bcrypt.ErrPasswordTooLong) {
+			return nil, http.StatusBadRequest, err
+		}
 		return nil, http.StatusInternalServerError, fmt.Errorf("failed to hash password: %w", err)
 	}
 
