@@ -1,12 +1,14 @@
 package fileutils
 
 import (
+	"errors"
 	"io"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 
+	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
 	"github.com/spf13/afero"
 )
 
@@ -37,12 +39,26 @@ func MoveFile(afs afero.Fs, src, dst string, fileMode, dirMode fs.FileMode) erro
 // CopyFile copies a file from source to dest and returns
 // an error if any.
 func CopyFile(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode) error {
+	return copyFile(afs, source, dest, fileMode, dirMode, os.O_WRONLY|os.O_CREATE)
+}
+
+func copyFile(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode, flags int) (retErr error) {
+	if filepath.Clean(source) == filepath.Clean(dest) {
+		return fberrors.ErrInvalidRequestParams
+	}
 	// Open the source file.
 	src, err := afs.Open(source)
 	if err != nil {
 		return err
 	}
 	defer src.Close()
+	info, err := src.Stat()
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fberrors.ErrInvalidRequestParams
+	}
 
 	// Makes the directory needed to create the dst
 	// file.
@@ -52,11 +68,26 @@ func CopyFile(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode) 
 	}
 
 	// Create the destination file.
-	dst, err := afs.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, fileMode)
+	// Open without O_TRUNC so identity checks apply to the actual destination
+	// handle. Checking names or stat'ing before open misses hardlinks, symlinks
+	// and a replacement inserted between the check and open.
+	dst, err := afs.OpenFile(dest, flags, fileMode)
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer func() { retErr = errors.Join(retErr, dst.Close()) }()
+	destInfo, err := dst.Stat()
+	if err != nil {
+		return err
+	}
+	if os.SameFile(info, destInfo) || !destInfo.Mode().IsRegular() {
+		return fberrors.ErrInvalidRequestParams
+	}
+	if flags&os.O_EXCL == 0 {
+		if err := dst.Truncate(0); err != nil {
+			return err
+		}
+	}
 
 	// Copy the contents of the file.
 	_, err = io.Copy(dst, src)
@@ -64,17 +95,20 @@ func CopyFile(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode) 
 		return err
 	}
 
-	// Copy the mode
-	info, err := afs.Stat(source)
-	if err != nil {
-		return err
+	// OS-backed ScopedFs returns an *os.File: set its mode through the same
+	// handle, rather than a pathname which another writer might replace.
+	if file, ok := dst.(interface{ Chmod(os.FileMode) error }); ok {
+		err = file.Chmod(info.Mode())
+	} else {
+		err = afs.Chmod(dest, info.Mode())
 	}
-	err = afs.Chmod(dest, info.Mode())
 	if err != nil {
 		return err
 	}
 
-	return nil
+	// A cross-device move may only delete its source after flush AND close
+	// succeed. The deferred close contributes its error to the return value.
+	return dst.Sync()
 }
 
 // CommonPrefix returns common directory path of provided files

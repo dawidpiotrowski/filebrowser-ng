@@ -78,11 +78,11 @@ func errToStatus(err error) int {
 	switch {
 	case err == nil:
 		return http.StatusOK
-	case os.IsPermission(err):
+	case errors.Is(err, os.ErrPermission):
 		return http.StatusForbidden
-	case os.IsNotExist(err), errors.Is(err, libErrors.ErrNotExist):
+	case errors.Is(err, os.ErrNotExist), errors.Is(err, libErrors.ErrNotExist):
 		return http.StatusNotFound
-	case os.IsExist(err), errors.Is(err, libErrors.ErrExist):
+	case errors.Is(err, os.ErrExist), errors.Is(err, libErrors.ErrExist):
 		return http.StatusConflict
 	case errors.Is(err, libErrors.ErrPermissionDenied):
 		return http.StatusForbidden

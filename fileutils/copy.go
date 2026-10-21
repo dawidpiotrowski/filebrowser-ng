@@ -10,6 +10,17 @@ import (
 
 // Copy copies a file or folder from one place to another.
 func Copy(afs afero.Fs, src, dst string, fileMode, dirMode fs.FileMode) error {
+	return copyWithFlags(afs, src, dst, fileMode, dirMode, os.O_WRONLY|os.O_CREATE)
+}
+
+// CopyExclusive creates destination files exclusively, including every file
+// below a copied directory. A concurrent writer must never turn a create-only
+// operation into an overwrite after the caller's initial conflict check.
+func CopyExclusive(afs afero.Fs, src, dst string, fileMode, dirMode fs.FileMode) error {
+	return copyWithFlags(afs, src, dst, fileMode, dirMode, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
+}
+
+func copyWithFlags(afs afero.Fs, src, dst string, fileMode, dirMode fs.FileMode, flags int) error {
 	if src = path.Clean("/" + src); src == "" {
 		return os.ErrNotExist
 	}
@@ -33,8 +44,8 @@ func Copy(afs afero.Fs, src, dst string, fileMode, dirMode fs.FileMode) error {
 	}
 
 	if info.IsDir() {
-		return CopyDir(afs, src, dst, fileMode, dirMode)
+		return copyDir(afs, src, dst, fileMode, dirMode, flags)
 	}
 
-	return CopyFile(afs, src, dst, fileMode, dirMode)
+	return copyFile(afs, src, dst, fileMode, dirMode, flags)
 }

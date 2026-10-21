@@ -3,6 +3,7 @@ package fileutils
 import (
 	"errors"
 	"io/fs"
+	"os"
 
 	"github.com/spf13/afero"
 )
@@ -11,6 +12,10 @@ import (
 // of its sub-directories. It doesn't stop if it finds an error
 // during the copy. Returns an error if any.
 func CopyDir(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode) error {
+	return copyDir(afs, source, dest, fileMode, dirMode, os.O_WRONLY|os.O_CREATE)
+}
+
+func copyDir(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode, flags int) error {
 	// Get properties of source.
 	srcinfo, err := afs.Stat(source)
 	if err != nil {
@@ -42,27 +47,18 @@ func CopyDir(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode) e
 
 		if obj.IsDir() {
 			// Create sub-directories, recursively.
-			err = CopyDir(afs, fsource, fdest, fileMode, dirMode)
+			err = copyDir(afs, fsource, fdest, fileMode, dirMode, flags)
 			if err != nil {
 				errs = append(errs, err)
 			}
 		} else {
 			// Perform the file copy.
-			err = CopyFile(afs, fsource, fdest, fileMode, dirMode)
+			err = copyFile(afs, fsource, fdest, fileMode, dirMode, flags)
 			if err != nil {
 				errs = append(errs, err)
 			}
 		}
 	}
 
-	var errString string
-	for _, err := range errs {
-		errString += err.Error() + "\n"
-	}
-
-	if errString != "" {
-		return errors.New(errString)
-	}
-
-	return nil
+	return errors.Join(errs...)
 }

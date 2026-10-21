@@ -269,7 +269,8 @@ func resourcePatchHandler(fileCache FileCache) handleFunc {
 		}
 
 		err = d.RunHook(func() error {
-			return patchAction(r.Context(), action, src, dst, d, fileCache)
+			overwrite := r.URL.Query().Get("override") == "true" && r.URL.Query().Get("rename") != "true"
+			return patchAction(r.Context(), action, src, dst, d, fileCache, overwrite)
 		}, action, src, dst, d.user)
 
 		return errToStatus(err), err
@@ -390,13 +391,16 @@ func delThumbs(ctx context.Context, fileCache FileCache, file *files.FileInfo) e
 	return nil
 }
 
-func patchAction(ctx context.Context, action, src, dst string, d *data, fileCache FileCache) error {
+func patchAction(ctx context.Context, action, src, dst string, d *data, fileCache FileCache, overwrite bool) error {
 	switch action {
 	case "copy":
-		if !d.user.Perm.Create {
+		if !d.user.Perm.Create || (overwrite && !d.user.Perm.Modify) {
 			return fberrors.ErrPermissionDenied
 		}
 
+		if !overwrite {
+			return fileutils.CopyExclusive(d.user.Fs, src, dst, d.settings.FileMode, d.settings.DirMode)
+		}
 		return fileutils.Copy(d.user.Fs, src, dst, d.settings.FileMode, d.settings.DirMode)
 	case "rename":
 		shareMutation.Lock()
