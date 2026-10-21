@@ -25,13 +25,12 @@ export async function fetchURL(
   opts.headers = opts.headers || {};
 
   const { headers, ...rest } = opts;
+  const requestHeaders = new Headers({ "X-Auth": authStore.jwt, ...headers });
+  const requestToken = requestHeaders.get("X-Auth") || "";
   let res;
   try {
     res = await fetch(`${baseURL}${url}`, {
-      headers: {
-        "X-Auth": authStore.jwt,
-        ...headers,
-      },
+      headers: requestHeaders,
       ...rest,
     });
   } catch (e) {
@@ -43,7 +42,7 @@ export async function fetchURL(
   }
 
   if (auth && res.headers.get("X-Renew-Token") === "true") {
-    await renew(authStore.jwt);
+    await renew(requestToken);
   }
 
   if (res.status < 200 || res.status > 299) {
@@ -54,7 +53,11 @@ export async function fetchURL(
     );
 
     if (auth && res.status == 401) {
-      logout();
+      // A delayed 401 must not revoke a replacement or newly logged-in session.
+      // Preserve the original HTTP error if revocation cannot reach the server.
+      await logout(undefined, requestToken).catch(() => {
+        console.warn("Unable to revoke expired session; retry logout");
+      });
     }
 
     throw error;

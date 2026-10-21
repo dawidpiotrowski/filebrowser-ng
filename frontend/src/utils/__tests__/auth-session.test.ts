@@ -69,4 +69,76 @@ describe("server-side session lifecycle", () => {
     await expect(logout()).rejects.toThrow("offline");
     expect(store.clearUser).not.toHaveBeenCalled();
   });
+  it("does not let a delayed 401 revoke a session renewed in flight", async () => {
+    let finish!: (value: {
+      status: number;
+      text: () => Promise<string>;
+    }) => void;
+    const fetch = vi
+      .fn()
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (finish = resolve))
+      )
+      .mockResolvedValue({ status: 401 });
+    vi.stubGlobal("fetch", fetch);
+    const renewing = renew("old");
+    const loggingOut = logout(undefined, "old");
+    finish({ status: 200, text: async () => "new" });
+    await renewing;
+    await loggingOut;
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(store.jwt).toBe("new");
+    expect(store.clearUser).not.toHaveBeenCalled();
+  });
+  it("still revokes the replacement on manual logout during renewal", async () => {
+    let finish!: (value: {
+      status: number;
+      text: () => Promise<string>;
+    }) => void;
+    const fetch = vi
+      .fn()
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (finish = resolve))
+      )
+      .mockResolvedValue({ status: 204, ok: true });
+    vi.stubGlobal("fetch", fetch);
+    const renewing = renew("old");
+    const loggingOut = logout();
+    finish({ status: 200, text: async () => "new" });
+    await Promise.all([renewing, loggingOut]);
+    expect(fetch).toHaveBeenLastCalledWith(
+      "/api/logout",
+      expect.objectContaining({ headers: { "X-Auth": "new" } })
+    );
+    expect(store.clearUser).toHaveBeenCalledTimes(1);
+  });
+  it("does not clear a new login after a delayed logout response", async () => {
+    let finish!: (value: { status: number; ok: boolean }) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise((resolve) => (finish = resolve)))
+    );
+    const pending = logout();
+    store.jwt = "different-login";
+    finish({ status: 204, ok: true });
+    await pending;
+    expect(store.clearUser).not.toHaveBeenCalled();
+    expect(store.jwt).toBe("different-login");
+  });
+  it("does not overwrite a new login with an earlier renewal response", async () => {
+    let finish!: (value: {
+      status: number;
+      text: () => Promise<string>;
+    }) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise((resolve) => (finish = resolve)))
+    );
+    const pending = renew("old");
+    store.jwt = "different-login";
+    finish({ status: 200, text: async () => "renewed-old-login" });
+    await pending;
+    expect(store.jwt).toBe("different-login");
+    expect(store.setUser).not.toHaveBeenCalled();
+  });
 });

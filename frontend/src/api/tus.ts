@@ -37,6 +37,10 @@ export async function upload(
       headers: {
         "X-Auth": authStore.jwt,
       },
+      onBeforeRequest: function (request) {
+        // Renewal consumes the previous session; long uploads need its successor.
+        request.setHeader("X-Auth", authStore.jwt);
+      },
       onShouldRetry: function (err) {
         const status = err.originalResponse
           ? err.originalResponse.getStatus()

@@ -88,6 +88,7 @@ export function renew(jwt: string): Promise<void> {
 }
 
 async function renewSession(jwt: string) {
+  const initialToken = useAuthStore().jwt;
   const res = await fetch(`${baseURL}/api/renew`, {
     method: "POST",
     headers: {
@@ -98,7 +99,8 @@ async function renewSession(jwt: string) {
   const body = await res.text();
 
   if (res.status === 200) {
-    parseToken(body);
+    // Do not replace an account that logged in while this request was pending.
+    if (useAuthStore().jwt === initialToken) parseToken(body);
   } else {
     throw new StatusError(
       body || `${res.status} ${res.statusText}`,
@@ -127,7 +129,7 @@ export async function signup(username: string, password: string) {
   }
 }
 
-export async function logout(reason?: string) {
+export async function logout(reason?: string, expectedToken?: string) {
   // Revoke the replacement if a renewal was already in flight.
   if (renewal) {
     try {
@@ -138,6 +140,9 @@ export async function logout(reason?: string) {
   }
   const authStore = useAuthStore();
   const token = authStore.jwt || localStorage.getItem("jwt");
+  // Automatic logout is scoped to the failed request, even when it had to
+  // wait for renewal. A manual logout omits expectedToken and revokes the latest.
+  if (expectedToken !== undefined && token !== expectedToken) return;
   if (token) {
     // Wait for revocation before navigating away. If the server is unreachable,
     // retain the session locally so logout can be retried.
@@ -153,6 +158,8 @@ export async function logout(reason?: string) {
       );
     }
   }
+  // A different account may have logged in while revocation was pending.
+  if ((authStore.jwt || localStorage.getItem("jwt")) !== token) return;
   if (authStore.logoutTimer) clearTimeout(authStore.logoutTimer);
   authStore.clearUser();
 
