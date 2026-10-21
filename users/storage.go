@@ -6,6 +6,7 @@ import (
 	"time"
 
 	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/rules"
 )
 
 // StorageBackend is the interface to implement for a users storage.
@@ -40,6 +41,10 @@ type Storage struct {
 	// provision serializes the scope-collision check and the save of newly
 	// provisioned users, which must not interleave. See SaveProvisioned.
 	provision sync.Mutex
+
+	// Serialize user writes with last-administrator checks. Two concurrent
+	// deletes/demotions must not both observe another administrator.
+	adminMutation sync.Mutex
 }
 
 // NewStorage creates a users storage from a backend.
@@ -89,11 +94,30 @@ func (s *Storage) Gets(baseScope string, followExternalSymlinks bool) ([]*User, 
 
 // Update updates a user in the database.
 func (s *Storage) Update(user *User, fields ...string) error {
+	if len(fields) == 0 {
+		if err := rules.Validate(user.Rules); err != nil {
+			return err
+		}
+	} else {
+		for _, field := range fields {
+			if field == "Rules" {
+				if err := rules.Validate(user.Rules); err != nil {
+					return err
+				}
+				break
+			}
+		}
+	}
 	err := user.Clean("", false, fields...)
 	if err != nil {
 		return err
 	}
 
+	s.adminMutation.Lock()
+	defer s.adminMutation.Unlock()
+	if err := s.checkAdminReplacement(user, fields...); err != nil {
+		return err
+	}
 	err = s.back.Update(user, fields...)
 	if err != nil {
 		return err
@@ -107,11 +131,45 @@ func (s *Storage) Update(user *User, fields ...string) error {
 
 // Save saves the user in a storage.
 func (s *Storage) Save(user *User) error {
+	if err := rules.Validate(user.Rules); err != nil {
+		return err
+	}
 	if err := user.Clean("", false); err != nil {
 		return err
 	}
 
+	s.adminMutation.Lock()
+	defer s.adminMutation.Unlock()
+	if err := s.checkAdminReplacement(user); err != nil {
+		return err
+	}
 	return s.back.Save(user)
+}
+
+func (s *Storage) checkAdminReplacement(user *User, fields ...string) error {
+	if user.ID == 0 || user.Perm.Admin {
+		return nil
+	}
+	if len(fields) > 0 {
+		updatesPerm := false
+		for _, field := range fields {
+			updatesPerm = updatesPerm || field == "Perm"
+		}
+		if !updatesPerm {
+			return nil
+		}
+	}
+	stored, err := s.back.GetBy(user.ID)
+	if errors.Is(err, fberrors.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if s.IsUniqueAdmin(stored) {
+		return fberrors.ErrRootUserDeletion
+	}
+	return nil
 }
 
 // SaveProvisioned saves a user that is being provisioned (via signup, proxy
@@ -144,6 +202,8 @@ func (s *Storage) SaveProvisioned(user *User, derivedScope bool) error {
 // id must be a string for username lookup or a uint for id lookup. If id
 // is neither, a ErrInvalidDataType will be returned.
 func (s *Storage) Delete(id interface{}) error {
+	s.adminMutation.Lock()
+	defer s.adminMutation.Unlock()
 	switch id := id.(type) {
 	case string:
 		user, err := s.back.GetBy(id)

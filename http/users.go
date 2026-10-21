@@ -10,17 +10,38 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"github.com/dawidpiotrowski/filebrowser-ng/v2/auth"
 	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
 	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
-var (
-	NonModifiableFieldsForNonAdmin = []string{"Username", "Scope", "LockPassword", "Perm", "Commands", "Rules"}
-)
+type userUpdateField struct {
+	name             string
+	adminOnly        bool
+	passwordRequired bool
+}
+
+// Only persisted, intentionally editable fields belong in this list. In
+// particular ID and the runtime filesystem must never reach reflection-based
+// storage updates. Normalize once, before authorization or any writes.
+var userUpdateFields = map[string]userUpdateField{
+	"username":              {"Username", true, true},
+	"password":              {"Password", false, true},
+	"scope":                 {"Scope", true, true},
+	"lockpassword":          {"LockPassword", true, true},
+	"perm":                  {"Perm", true, true},
+	"commands":              {"Commands", true, true},
+	"rules":                 {"Rules", true, true},
+	"locale":                {name: "Locale"},
+	"viewmode":              {name: "ViewMode"},
+	"singleclick":           {name: "SingleClick"},
+	"redirectaftercopymove": {name: "RedirectAfterCopyMove"},
+	"sorting":               {name: "Sorting"},
+	"hidedotfiles":          {name: "HideDotfiles"},
+	"dateformat":            {name: "DateFormat"},
+	"aceeditortheme":        {name: "AceEditorTheme"},
+}
 
 type modifyUserRequest struct {
 	modifyRequest
@@ -48,7 +69,7 @@ func getUser(w http.ResponseWriter, r *http.Request) (*modifyUserRequest, error)
 		return nil, err
 	}
 
-	if req.What != "user" {
+	if req.What != "user" || req.Data == nil {
 		return nil, fberrors.ErrInvalidDataType
 	}
 
@@ -185,86 +206,62 @@ var userPutHandler = withSelfOrAdmin(func(w http.ResponseWriter, r *http.Request
 		return http.StatusBadRequest, err
 	}
 
-	if d.settings.AuthMethod == auth.MethodJSONAuth {
-		var sensibleFields = map[string]struct{}{
-			"all":          {},
-			"username":     {},
-			"password":     {},
-			"scope":        {},
-			"lockPassword": {},
-			"commands":     {},
-			"perm":         {},
-		}
-
-		for _, field := range req.Which {
-			if _, ok := sensibleFields[strings.ToLower(field)]; ok {
-				if !users.CheckPwd(req.CurrentPassword, d.user.Password) {
-					return http.StatusBadRequest, fberrors.ErrCurrentPasswordIncorrect
-				}
-				break
-			}
-		}
-	}
-
 	if req.Data.ID != d.raw.(uint) {
 		return http.StatusBadRequest, nil
 	}
 
-	for _, field := range req.Which {
-		if strings.ToLower(field) == "perm" || strings.ToLower(field) == "all" {
-			if req.Data.Perm.Share && !req.Data.Perm.Download {
-				return http.StatusBadRequest, fberrors.ErrShareRequiresDownload
-			}
-		}
-	}
-
-	if len(req.Which) == 0 || (len(req.Which) == 1 && req.Which[0] == "all") {
+	fullUpdate := len(req.Which) == 0 || (len(req.Which) == 1 && strings.EqualFold(req.Which[0], "all"))
+	passwordRequired := fullUpdate
+	updatesPassword, updatesPerm := fullUpdate, fullUpdate
+	if fullUpdate {
 		if !d.user.Perm.Admin {
 			return http.StatusForbidden, nil
 		}
-
-		if req.Data.Password != "" {
-			req.Data.Password, err = users.ValidateAndHashPwd(req.Data.Password, d.settings.MinimumPasswordLength)
-			if err != nil {
-				return http.StatusBadRequest, err
+		req.Which = nil
+	} else {
+		for i, name := range req.Which {
+			field, ok := userUpdateFields[strings.ToLower(name)]
+			if !ok {
+				return http.StatusBadRequest, fberrors.ErrInvalidOption
 			}
-		} else {
-			var suser *users.User
-			suser, err = d.store.Users.Get(d.server.Root, d.server.FollowExternalSymlinks, d.raw.(uint))
-			if err != nil {
-				return http.StatusInternalServerError, err
+			if field.adminOnly && !d.user.Perm.Admin {
+				return http.StatusForbidden, nil
 			}
-			req.Data.Password = suser.Password
+			req.Which[i] = field.name
+			passwordRequired = passwordRequired || field.passwordRequired
+			updatesPassword = updatesPassword || field.name == "Password"
+			updatesPerm = updatesPerm || field.name == "Perm"
 		}
-
-		req.Which = []string{}
 	}
 
-	for k, v := range req.Which {
-		v = cases.Title(language.English, cases.NoLower).String(v)
-		req.Which[k] = v
+	if d.settings.AuthMethod == auth.MethodJSONAuth && passwordRequired && !users.CheckPwd(req.CurrentPassword, d.user.Password) {
+		return http.StatusBadRequest, fberrors.ErrCurrentPasswordIncorrect
+	}
+	if updatesPerm && req.Data.Perm.Share && !req.Data.Perm.Download {
+		return http.StatusBadRequest, fberrors.ErrShareRequiresDownload
+	}
 
-		if v == "Password" {
-			if !d.user.Perm.Admin && d.user.LockPassword {
-				return http.StatusForbidden, nil
+	if updatesPassword {
+		if !d.user.Perm.Admin && d.user.LockPassword {
+			return http.StatusForbidden, nil
+		}
+		if fullUpdate && req.Data.Password == "" {
+			stored, getErr := d.store.Users.Get(d.server.Root, d.server.FollowExternalSymlinks, d.raw.(uint))
+			if getErr != nil {
+				return http.StatusInternalServerError, getErr
 			}
-
+			req.Data.Password = stored.Password
+		} else {
 			req.Data.Password, err = users.ValidateAndHashPwd(req.Data.Password, d.settings.MinimumPasswordLength)
 			if err != nil {
 				return http.StatusBadRequest, err
-			}
-		}
-
-		for _, f := range NonModifiableFieldsForNonAdmin {
-			if !d.user.Perm.Admin && v == f {
-				return http.StatusForbidden, nil
 			}
 		}
 	}
 
 	err = d.store.Users.Update(req.Data, req.Which...)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return errToStatus(err), err
 	}
 
 	return http.StatusOK, nil

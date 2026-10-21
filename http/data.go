@@ -69,11 +69,17 @@ func (d *data) checkRulePath(path string, hidden bool) bool {
 	}
 	allow := true
 	for _, rule := range d.settings.Rules {
+		if err := rule.Validate(); err != nil {
+			return false
+		}
 		if rule.Matches(path, d.server.CaseInsensitiveFs) {
 			allow = rule.Allow
 		}
 	}
 	for _, rule := range d.user.Rules {
+		if err := rule.Validate(); err != nil {
+			return false
+		}
 		if rule.Matches(path, d.server.CaseInsensitiveFs) {
 			allow = rule.Allow
 		}
@@ -109,7 +115,8 @@ func handle(fn handleFunc, prefix string, store *storage.Storage, server *settin
 
 		settings, err := store.Settings.Get()
 		if err != nil {
-			log.Fatalf("ERROR: couldn't get settings: %v\n", err)
+			log.Printf("ERROR: couldn't get settings: %v", err)
+			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 

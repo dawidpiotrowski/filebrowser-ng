@@ -74,6 +74,9 @@ func (s *Storage) Save(set *Settings) error {
 	if len(set.Key) == 0 {
 		return fberrors.ErrEmptyKey
 	}
+	if err := rules.Validate(set.Rules); err != nil {
+		return err
+	}
 
 	if set.Defaults.Locale == "" {
 		set.Defaults.Locale = "en"

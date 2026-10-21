@@ -4,12 +4,14 @@ A maintained fork of [File Browser](https://github.com/filebrowser/filebrowser),
 
 This fork starts with a security hardening pass. Read the [audit and advisory inventory](docs/security/audit-2026-10-21.md) and [migration guide](docs/migration.md) before replacing an existing instance.
 
+The [follow-up code review](docs/security/code-review-2026-10-21.md) documents additional fixes in 2.64.0-ng.3. The [security roadmap](docs/security/roadmap.md) covers browser sessions, safe file commits, CSP, MFA and resource limits.
+
 ## Docker / NAS
 
 Public images for Linux `amd64` and `arm64` are published to [GHCR](https://github.com/dawidpiotrowski/filebrowser-ng/pkgs/container/filebrowser-ng):
 
 ```sh
-docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.2
+docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.3
 docker compose up -d
 ```
 

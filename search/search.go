@@ -26,9 +26,20 @@ func Search(ctx context.Context,
 	scope = filepath.ToSlash(filepath.Clean(scope))
 	scope = path.Join("/", scope)
 
-	return afero.Walk(fs, scope, func(fPath string, f os.FileInfo, _ error) error {
+	return afero.Walk(fs, scope, func(fPath string, f os.FileInfo, walkErr error) error {
 		if ctx.Err() != nil {
 			return context.Cause(ctx)
+		}
+		if walkErr != nil {
+			if filepath.Clean(fPath) == filepath.FromSlash(scope) {
+				return walkErr
+			}
+			// An entry can disappear or become unreadable between readdir and
+			// stat. Never publish nil metadata to the streaming HTTP callback.
+			if os.IsNotExist(walkErr) || os.IsPermission(walkErr) {
+				return nil
+			}
+			return walkErr
 		}
 		fPath = filepath.ToSlash(filepath.Clean(fPath))
 		fPath = path.Join("/", fPath)

@@ -2,7 +2,7 @@
 # docker compose --env-file .env.nas -f compose.nas.yaml up -d
 services:
   filebrowser-ng:
-    image: ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.2
+    image: ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.3
     user: "${FILEBROWSER_UID:?Set FILEBROWSER_UID}:${FILEBROWSER_GID:?Set FILEBROWSER_GID}"
     restart: unless-stopped
     ports:

@@ -1,9 +1,13 @@
 package rules
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
+
+	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
 )
 
 // Checker is a Rules checker.
@@ -58,15 +62,49 @@ func (r *Rule) Matches(path string, fold bool) bool {
 // Regexp is a wrapper to the native regexp type where we
 // save the raw expression.
 type Regexp struct {
-	Raw    string `json:"raw"`
-	regexp *regexp.Regexp
+	Raw         string `json:"raw"`
+	mu          sync.Mutex
+	regexp      *regexp.Regexp
+	compiledRaw string
 }
 
 // MatchString checks if a string matches the regexp.
 func (r *Regexp) MatchString(s string) bool {
-	if r.regexp == nil {
-		r.regexp = regexp.MustCompile(r.Raw)
-	}
+	compiled, err := r.compile()
+	return err == nil && compiled.MatchString(s)
+}
 
-	return r.regexp.MatchString(s)
+func (r *Regexp) compile() (*regexp.Regexp, error) {
+	if r == nil {
+		return nil, fmt.Errorf("missing regular expression: %w", fberrors.ErrInvalidRequestParams)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.regexp == nil || r.compiledRaw != r.Raw {
+		compiled, err := regexp.Compile(r.Raw)
+		if err != nil {
+			return nil, fmt.Errorf("invalid regular expression (%s): %w", err, fberrors.ErrInvalidRequestParams)
+		}
+		r.regexp = compiled
+		r.compiledRaw = r.Raw
+	}
+	return r.regexp, nil
+}
+
+func (r *Rule) Validate() error {
+	if !r.Regex {
+		return nil
+	}
+	_, err := r.Regexp.compile()
+	return err
+}
+
+// Validate rejects invalid rule sets before they become persistent policy.
+func Validate(set []Rule) error {
+	for i := range set {
+		if err := set[i].Validate(); err != nil {
+			return fmt.Errorf("rule %d: %w", i+1, err)
+		}
+	}
+	return nil
 }

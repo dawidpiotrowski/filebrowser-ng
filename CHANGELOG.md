@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
+## [2.64.0-ng.3](https://github.com/dawidpiotrowski/filebrowser-ng/compare/v2.64.0-ng.2...v2.64.0-ng.3) (2026-10-21)
+
+### Security and Bug Fixes
+
+* Require current-password verification for every sensitive user update and validate fields before atomic storage updates; reject malformed user bodies and inconsistent permissions.
+* Preserve existing move destinations on failure and restrict copy fallback to cross-device moves.
+* Prevent concurrent deletion or demotion of the last administrator, and reject invalid regex rules safely.
+* Apply framing/navigation/security headers to application fallback pages while preserving same-origin previews.
+* Fix search metadata failures/heartbeats, thumbnail cancellation/cache identity, concurrent cache reads and unbounded cache-lock memory.
+* Return HTTP 500 on request-time settings storage failure instead of terminating the process; route error reports to this fork.
+
+See the [code review](docs/security/code-review-2026-10-21.md), [security roadmap](docs/security/roadmap.md) and [migration notes](docs/migration.md#changes-in-2640-ng3).
+
 ## [2.64.0-ng.2](https://github.com/dawidpiotrowski/filebrowser-ng/compare/v2.64.0-ng.1...v2.64.0-ng.2) (2026-10-21)
 
 ### Bug Fixes

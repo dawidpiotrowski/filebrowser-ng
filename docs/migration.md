@@ -14,3 +14,13 @@ Subtitle conversion is capped at 2 MiB; VTT streams directly. Text previews are 
 The new container is published to GHCR, contains no shell, runs as UID/GID 65532, and listens on 8080. Match `user:` to your existing NAS UID/GID rather than changing ownership of an entire data tree. The supplied Compose file binds to loopback; [compose.nas.yaml](../compose.nas.yaml) makes paths, ownership, and the bind address explicit. The upstream S6 image and upstream install scripts are not fork distribution channels.
 
 After a successful test migration, take a fresh backup and switch the deployment. Rolling back to upstream reintroduces its known vulnerabilities; do not treat rollback as a security fix.
+
+## Changes in 2.64.0-ng.3
+
+- Complete user replacements (`which` missing/null/empty or `all`) and changes to passwords, identities, permissions, scope, password locks, commands and rules require the current password under JSON authentication. Preference-only updates still work without it. API clients must send editable field names; ID/runtime filesystem fields and unknown fields are rejected before any writes.
+- The last administrator cannot be deleted or demoted through API/CLI, including concurrent operations. Invalid regex rules are rejected before saving. Existing malformed rules deny file access; fix global rules in settings or repair user rules through an administrator.
+- Failed rename operations fall back to copy/delete only for cross-device moves. Other filesystem errors are returned instead of being bypassed. Failed copies retain the source/partial destination for recovery and never unconditionally delete an existing destination. Interrupted overwrite atomicity remains planned work.
+- Application pages now restrict embedding to the same origin and set no-referrer, navigation and browser-permission headers. Same-origin PDF previews remain allowed. Integrations embedding the UI on another origin need an explicit policy design. HSTS remains a reverse-proxy/TLS endpoint setting.
+- Thumbnail cache identity now includes finer timestamps and size. Existing cache entries are ignored, not migrated; caches may be cleared separately during maintenance. The database schema and UID/GID/container paths do not change.
+
+See the [review](security/code-review-2026-10-21.md) for evidence and remaining boundaries, and the [roadmap](security/roadmap.md) for upcoming security features.

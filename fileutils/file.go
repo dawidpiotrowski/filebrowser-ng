@@ -14,13 +14,18 @@ import (
 // By default the rename filesystem system call is used. If src and dst point to different volumes
 // the file copy is used as a fallback
 func MoveFile(afs afero.Fs, src, dst string, fileMode, dirMode fs.FileMode) error {
-	if afs.Rename(src, dst) == nil {
+	if err := afs.Rename(src, dst); err == nil {
 		return nil
+	} else if !isCrossDevice(err) {
+		// Copy/delete must not bypass a failed rename's permission, sharing,
+		// read-only-filesystem or other errors.
+		return err
 	}
 	// fallback
 	err := Copy(afs, src, dst, fileMode, dirMode)
 	if err != nil {
-		_ = afs.Remove(dst)
+		// The destination can predate this move. Never delete it on failure;
+		// leave partial copies for recovery and retain the complete source.
 		return err
 	}
 	if err := afs.RemoveAll(src); err != nil {

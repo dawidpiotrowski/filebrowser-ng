@@ -17,12 +17,10 @@ import (
 type FileCache struct {
 	fs afero.Fs
 
-	// granular locks
-	scopedLocks struct {
-		sync.Mutex
-		sync.Once
-		locks map[string]sync.Locker
-	}
+	// Fixed stripes bound lock memory even as files are edited or deleted.
+	// Readers share the same lock as writers so a cache hit is never a file
+	// which has just been truncated by Store.
+	locks [256]sync.RWMutex
 }
 
 func New(fs afero.Fs, root string) *FileCache {
@@ -49,6 +47,9 @@ func (f *FileCache) Store(_ context.Context, key string, value []byte) error {
 }
 
 func (f *FileCache) Load(_ context.Context, key string) (value []byte, exist bool, err error) {
+	mu := f.getScopedLocks(key)
+	mu.RLock()
+	defer mu.RUnlock()
 	r, ok, err := f.open(key)
 	if err != nil || !ok {
 		return nil, ok, err
@@ -87,19 +88,9 @@ func (f *FileCache) open(key string) (afero.File, bool, error) {
 	return file, true, nil
 }
 
-// getScopedLocks pull lock from the map if found or create a new one
-func (f *FileCache) getScopedLocks(key string) (lock sync.Locker) {
-	f.scopedLocks.Do(func() { f.scopedLocks.locks = map[string]sync.Locker{} })
-
-	f.scopedLocks.Lock()
-	lock, ok := f.scopedLocks.locks[key]
-	if !ok {
-		lock = &sync.Mutex{}
-		f.scopedLocks.locks[key] = lock
-	}
-	f.scopedLocks.Unlock()
-
-	return lock
+func (f *FileCache) getScopedLocks(key string) *sync.RWMutex {
+	sum := sha1.Sum([]byte(key))
+	return &f.locks[sum[0]]
 }
 
 func (f *FileCache) getFileName(key string) string {

@@ -3,7 +3,7 @@
 Registry: [ghcr.io/dawidpiotrowski/filebrowser-ng](https://github.com/dawidpiotrowski/filebrowser-ng/pkgs/container/filebrowser-ng). Public pulls require no login. Images support Linux `amd64` (Intel/AMD NAS) and `arm64` (64-bit ARM NAS); Docker selects the matching platform. 32-bit ARM is not currently published.
 
 ```sh
-docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.2
+docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.3
 ```
 
 Use a numbered version in production. `latest` follows the most recently published release. The workflow also publishes `sha-<full-git-commit>` and records an immutable multi-platform digest in its summary. To pin a digest, use `ghcr.io/dawidpiotrowski/filebrowser-ng@sha256:…`. Image labels identify the version, source, and commit; BuildKit publishes provenance and SBOM attestations alongside the image.
@@ -35,7 +35,7 @@ The database directory and served files must be writable by the selected UID/GID
 
 ### Adapt an existing Compose or NAS container UI
 
-Change the image to `ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.2` and map your current host port to container port **8080**. Preserve the existing file/database mounts and set the UID/GID. A port mapping that previously ended in `:80` must end in `:8080`.
+Change the image to `ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.3` and map your current host port to container port **8080**. Preserve the existing file/database mounts and set the UID/GID. A port mapping that previously ended in `:80` must end in `:8080`.
 
 The default command is:
 
@@ -57,4 +57,4 @@ Stop the service, back up the database and data together, update the image versi
 
 ## Publish a release
 
-Push a tag such as `v2.64.0-ng.2`. The `Publish container` workflow first runs the reusable CI workflow (Go race tests on Linux, frontend checks, vulnerability checks, and native container startup tests on both architectures), then cross-compiles and publishes both platforms to GHCR. Its registry credential is the repository's short-lived `GITHUB_TOKEN`; no personal registry token is required. The full branch CI also tests macOS and Windows independently. To retry or publish an existing tag using the current workflow, dispatch it from the default branch with the `tag` input; both verification and image building check out the resolved tagged commit, not the default branch. A new GHCR package initially needs its visibility set to Public by its owner; verify an anonymous pull before announcing it.
+Push a tag such as `v2.64.0-ng.3`. The `Publish container` workflow first runs the reusable CI workflow (Go race tests on Linux, frontend checks, vulnerability checks, and native container startup tests on both architectures), then cross-compiles and publishes both platforms to GHCR. Its registry credential is the repository's short-lived `GITHUB_TOKEN`; no personal registry token is required. The full branch CI also tests macOS and Windows independently. To retry or publish an existing tag using the current workflow, dispatch it from the default branch with the `tag` input; both verification and image building check out the resolved tagged commit, not the default branch. A new GHCR package initially needs its visibility set to Public by its owner; verify an anonymous pull before announcing it.

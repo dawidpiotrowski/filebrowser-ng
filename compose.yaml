@@ -1,6 +1,6 @@
 services:
   filebrowser-ng:
-    image: ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.2
+    image: ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.3
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"

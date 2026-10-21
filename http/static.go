@@ -112,7 +112,7 @@ func getStaticHandlers(store *storage.Storage, server *settings.Server, assetsFs
 			return http.StatusNotFound, nil
 		}
 
-		w.Header().Set("x-xss-protection", "1; mode=block")
+		w.Header().Set("Content-Security-Policy", applicationCSP)
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		return handleWithStaticData(w, r, d, assetsFs, "public/index.html", "text/html; charset=utf-8")
 	}, "", store, server)
