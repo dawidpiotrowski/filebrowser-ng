@@ -5,6 +5,11 @@ on:
     tags: ['v*']
   # Select an existing version tag when retrying a release from the Actions UI.
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (leave empty when dispatching directly on a tag)
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -18,22 +23,32 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.source.outputs.commit }}
     steps:
       - name: Require a version tag
         id: version
         env:
-          REF_TYPE: ${{ github.ref_type }}
-          REF_NAME: ${{ github.ref_name }}
+          REF_NAME: ${{ inputs.tag || github.ref_name }}
         run: |
-          if [[ "$REF_TYPE" != tag || ! "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-ng\.[0-9]+$ ]]; then
+          if [[ ! "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-ng\.[0-9]+$ ]]; then
             echo 'Select a release tag such as v2.64.0-ng.1.' >&2
             exit 1
           fi
           echo "version=${REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=$REF_NAME" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ steps.version.outputs.tag }}
+      - name: Resolve the tagged source
+        id: source
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   verify:
     needs: version
     uses: ./.github/workflows/ci.yaml
+    with:
+      ref: ${{ needs.version.outputs.commit }}
+      linux_only: true
 
   publish:
     needs: [version, verify]
@@ -46,6 +61,8 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ needs.version.outputs.commit }}
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
@@ -65,10 +82,10 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:${{ env.VERSION }}
             ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:sha-${{ github.sha }}
+            ${{ env.IMAGE }}:sha-${{ needs.version.outputs.commit }}
           build-args: |
             VERSION=${{ env.VERSION }}
-            VCS_REF=${{ github.sha }}
+            VCS_REF=${{ needs.version.outputs.commit }}
             BUILD_DATE=${{ steps.metadata.outputs.created }}
           annotations: |
             index:org.opencontainers.image.description=Maintained File Browser fork with security hardening

@@ -12,3 +12,6 @@ filebrowser
 filebrowser-ng
 .DS_Store
 .env*
+
+# Local deployment configuration
+.local/

@@ -40,3 +40,6 @@ build/
 
 default.nix
 Dockerfile.dev
+
+# Local deployment configuration
+.local/
