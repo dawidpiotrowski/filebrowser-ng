@@ -35,3 +35,18 @@ These changes follow `v2.64.0-ng.3` and are not yet available in a published ima
 - Browser requests associate renewal/logout with the token sent, and TUS refreshes its token for each request. The authentication wire protocol remains unchanged. Full HttpOnly session migration and cross-tab coordination are separate planned changes.
 
 See the [local review](security/follow-up-review-2026-10-21.md) for evidence and limitations.
+
+## Atomic file mutations (local, unreleased)
+
+This subsequent local patch implements the rename/overwrite work described above. It has no published image or deployment change.
+
+- Rename without explicit override, including an automatically suffixed destination, now uses native atomic exclusion. A competing destination returns 409 and retains the source; retry suffix selection if needed. Existing case aliases may conflict according to native filesystem behavior. Unknown adapters/filesystems cannot silently fall back to unsafe rename.
+- Ordinary uploads, editor saves, copies and cross-volume regular-file moves stage complete content before publishing it. Failed body reads, observed cancellation, disk-full and file Sync/Close errors before commit preserve the previous target. Existing readers/hardlinks retain the old inode. Replacing a file requires directory write/delete rights, enough temporary disk space and permission to preserve its security metadata. Supported mode/ownership/xattr/ACL preservation failures abort the replacement.
+- Resource GET returns an opaque ETag, and `If-Match` is supported for writes and TUS creation. The bundled editor sends the loaded version automatically. A stale save returns 412 and retains the editor's unsaved content. Treat tags as opaque; do not reconstruct them from modification time and size. Clients omitting the header remain compatible, but do not gain stale-editor detection before a write begins.
+- TUS destinations no longer appear empty/partial during creation or transfer. The old file remains readable during an overwrite; a new file appears after the final chunk commits. HEAD reports private staged progress. Cancellation or three-minute idle expiry discards only private chunks; it never removes the old visible file. Graceful shutdown discards pending stages. A server restart requires a new upload.
+- `.filebrowser-ng-staging-` components are reserved, case-insensitively, including through aliases and configured share/branding roots. Inventory pre-existing files/directories using that prefix before a later upgrade; move legitimate data to an ordinary name. Crash leftovers remain inaccessible through the app. Recover or remove them deliberately during maintenance; do not blindly delete matching paths while writes are active.
+- The process allows at most 256 active staged writes/TUS jobs and returns 429 when full. This does not replace disk quotas or a per-user budget. Run one writer process per tree.
+- Same-volume file/directory moves remain native renames. Cross-volume **directory** moves now return 501 rather than attempting a non-transactional copy/delete. Directory copying is still a sequence of atomic file commits and may be partial on failure. Directory copies into symlink-aliased descendants are rejected before destination creation.
+- After the atomic rename has committed, lost responses or a directory-sync failure can still mean the complete new file is present. Re-read before retrying. Windows directory durability differs from Unix, and native Windows/NAS validation remains required before a later publication.
+
+See the [implementation review](security/atomic-writes-2026-10-21.md) for exact guarantees, tests and remaining limits. Database schema and container configuration remain unchanged.

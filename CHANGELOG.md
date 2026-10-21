@@ -4,12 +4,16 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## Unreleased (local)
 
+* Close the rename conflict race with native no-replace operations; retain fast same-volume moves and reject unsafe cross-volume directory moves.
+* Stage uploads, editor saves and file copies privately, flush/close before atomic publication, preserve security metadata, and reject competing target/source changes.
+* Add conditional ETag saves in the editor and keep unsaved work after conflicts; TUS stages chunks until completion and cancels/expires without damaging visible files.
+
 * Prevent non-override copies from overwriting concurrent files; reject copies onto source aliases before truncation and preserve move sources on destination flush/close failure.
 * Bind resumable uploads to their creator and original file identity, while allowing the same user to resume after session renewal.
 * Validate share lifetimes without overflow, return client errors for invalid parameters, and generate new public links with 128 bits of randomness; preserve old links.
 * Fix delayed browser responses acting on replacement sessions and refresh authentication before each TUS request.
 
-See the [local follow-up review](docs/security/follow-up-review-2026-10-21.md) and [security plan](docs/security/roadmap.md). These changes have no published image or release yet.
+See the [local follow-up review](docs/security/follow-up-review-2026-10-21.md), [atomic mutation review](docs/security/atomic-writes-2026-10-21.md) and [security plan](docs/security/roadmap.md). These changes have no published image or release yet.
 
 ## [2.64.0-ng.3](https://github.com/dawidpiotrowski/filebrowser-ng/compare/v2.64.0-ng.2...v2.64.0-ng.3) (2026-10-21)
 

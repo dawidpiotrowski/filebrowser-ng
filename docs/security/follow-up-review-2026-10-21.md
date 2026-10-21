@@ -4,6 +4,8 @@ This pass starts at `12c883134fdb766667572905984f57627fe15b9e` (`v2.64.0-ng.3`).
 
 **These repairs are local, unreleased work.** No image, tag, release, push or deployment is part of this pass. The production NAS was not used for reproduction. Priorities below are maintenance assessments, not CVSS scores. This is a bounded review, not an assurance that every defect has been found.
 
+Subsequent local work addresses the rename race and single-file overwrite/commit concerns below; see the [atomic mutation review](atomic-writes-2026-10-21.md) for the updated implementation and remaining limits. The findings and validation here retain their original scope.
+
 ## Confirmed findings and local repairs
 
 | ID | Priority / impact | Reproduction against the starting code | Repair and regression |
