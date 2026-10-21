@@ -1,0 +1,27 @@
+# Copy .env.nas.example to .env.nas and fill in your existing paths and UID/GID.
+# docker compose --env-file .env.nas -f compose.nas.yaml up -d
+services:
+  filebrowser-ng:
+    image: ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.1
+    user: "${FILEBROWSER_UID:?Set FILEBROWSER_UID}:${FILEBROWSER_GID:?Set FILEBROWSER_GID}"
+    restart: unless-stopped
+    ports:
+      - "${FILEBROWSER_BIND:?Set FILEBROWSER_BIND}:${FILEBROWSER_PORT:-8080}:8080"
+    volumes:
+      - type: bind
+        source: ${FILEBROWSER_FILES:?Set FILEBROWSER_FILES}
+        target: /srv
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${FILEBROWSER_DATABASE_DIR:?Set FILEBROWSER_DATABASE_DIR}
+        target: /database
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

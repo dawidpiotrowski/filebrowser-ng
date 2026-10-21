@@ -1,6 +1,6 @@
 # Deployment
 
-Build the fork image from source using the supplied Compose file. It listens on loopback port 8080 by default, runs as UID/GID 65532, drops Linux capabilities, and uses a read-only runtime filesystem. The served data and database need writable volumes; keep the database outside the served tree.
+Use the published GHCR image with the supplied Compose file (see [Docker and NAS](docker.md)). It listens on loopback port 8080 by default, runs as UID/GID 65532, drops Linux capabilities, and uses a read-only runtime filesystem. The served data and database need writable volumes; keep the database outside the served tree. For local builds, add the `compose.build.yaml` override.
 
 For remote access, put the service behind a TLS-terminating reverse proxy. Forward requests to the loopback listener, set `X-Forwarded-Proto: https`, preserve the host, and configure request-size, connection, and rate limits appropriate to your users. Set the app's `baseURL` if serving it below a path prefix. Do not expose a proxy-auth backend directly to clients.
 

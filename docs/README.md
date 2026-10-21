@@ -1,6 +1,7 @@
 # filebrowser-ng documentation
 
 - [Installation](installation.md)
+- [Docker images and NAS migration](docker.md)
 - [Migration from File Browser](migration.md)
 - [Security audit and advisory inventory](security/audit-2026-10-21.md)
 - [Authentication](authentication.md)

@@ -11,3 +11,4 @@ build
 filebrowser
 filebrowser-ng
 .DS_Store
+.env*

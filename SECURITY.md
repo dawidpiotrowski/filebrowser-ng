@@ -1,6 +1,6 @@
 # Security policy
 
-The development branch of filebrowser-ng receives security fixes. No filebrowser-ng release has been tagged yet; upstream File Browser releases and images are not supported by this fork.
+The development branch and the latest filebrowser-ng release receive security fixes. The first fork container release is `2.64.0-ng.1`. Upgrade to the latest fork release for fixes; upstream File Browser releases and images are not supported by this fork.
 
 For a new vulnerability, use **Report a vulnerability** in this repository's Security tab (private vulnerability reporting is enabled for this fork). If it is unavailable, open an issue requesting a private reporting channel without including an exploit or sensitive data. Do not send reports to the archived upstream repository.
 

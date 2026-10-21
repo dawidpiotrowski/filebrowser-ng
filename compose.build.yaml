@@ -1,0 +1,5 @@
+# Local development: docker compose -f compose.yaml -f compose.build.yaml up --build -d
+services:
+  filebrowser-ng:
+    build: .
+    image: filebrowser-ng:local

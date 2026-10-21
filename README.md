@@ -2,7 +2,20 @@
 
 A maintained fork of [File Browser](https://github.com/filebrowser/filebrowser), starting from its final v2.63.23 release (commit `833d908884d5c801f30f5c098d7977177eb3a36b`). Upload, browse, preview, edit, and share files from a directory on your server.
 
-This fork starts with a security hardening pass. Read the [audit and advisory inventory](docs/security/audit-2026-10-21.md) and [migration guide](docs/migration.md) before replacing an existing instance. The first fork release is not yet tagged; build from source for testing.
+This fork starts with a security hardening pass. Read the [audit and advisory inventory](docs/security/audit-2026-10-21.md) and [migration guide](docs/migration.md) before replacing an existing instance.
+
+## Docker / NAS
+
+Public images for Linux `amd64` and `arm64` are published to [GHCR](https://github.com/dawidpiotrowski/filebrowser-ng/pkgs/container/filebrowser-ng):
+
+```sh
+docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.1
+docker compose up -d
+```
+
+The supplied Compose file uses persistent named volumes and binds to `127.0.0.1:8080`. On a NAS, use [the migration instructions](docs/docker.md) and [compose.nas.yaml](compose.nas.yaml) to keep your existing files, accounts, and database. The container listens on **8080** and runs as UID/GID **65532:65532** by default; set `user:` to your existing NAS UID/GID for bind mounts. It has no shell, S6, or `PUID`/`PGID` initialization.
+
+Version tags are recommended for upgrades. `latest` tracks the most recently published release; each build also has a full commit `sha-…` tag and an immutable registry digest. Publication requires passing CI, including native container smoke tests on both architectures.
 
 ## Build and run
 
@@ -24,10 +37,10 @@ The first startup creates the database and prints a random administrator passwor
 Alternatively, build the non-root container locally:
 
 ```sh
-docker compose up --build -d
+docker compose -f compose.yaml -f compose.build.yaml up --build -d
 ```
 
-The example listens on `127.0.0.1:8080`, persists files and the database in named volumes, drops capabilities, and uses a read-only root filesystem. The runtime image contains only the static Go executable and CA certificates; it has no shell. No fork images have been published to Docker Hub or GHCR yet.
+The runtime image contains only the static Go executable and CA certificates, drops capabilities, and uses a read-only root filesystem.
 
 ## Security changes
 
