@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -11,9 +12,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/filebrowser/filebrowser/v2/auth"
-	fberrors "github.com/filebrowser/filebrowser/v2/errors"
-	"github.com/filebrowser/filebrowser/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/auth"
+	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
 )
 
 func init() {
@@ -44,6 +45,7 @@ func addConfigFlags(flags *pflag.FlagSet) {
 
 	flags.String("auth.method", string(auth.MethodJSONAuth), "authentication type")
 	flags.String("auth.header", "", "HTTP header for auth.method=proxy")
+	flags.StringSlice("auth.trustedProxies", nil, "CIDRs allowed to assert proxy authentication (required for proxy auth)")
 	flags.String("auth.command", "", "command for auth.method=hook")
 	flags.String("auth.logoutPage", "", "url of custom logout page")
 
@@ -107,7 +109,30 @@ func getProxyAuth(flags *pflag.FlagSet, defaultAuther map[string]interface{}) (a
 		return nil, errors.New("you must set the flag 'auth.header' for method 'proxy'")
 	}
 
-	return &auth.ProxyAuth{Header: header}, nil
+	trusted, err := flags.GetStringSlice("auth.trustedProxies")
+	if err != nil {
+		return nil, err
+	}
+	if !flags.Changed("auth.trustedProxies") && defaultAuther != nil {
+		if raw, ok := defaultAuther["trustedProxies"]; ok {
+			buf, err := json.Marshal(raw)
+			if err != nil {
+				return nil, err
+			}
+			if err := json.Unmarshal(buf, &trusted); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if len(trusted) == 0 {
+		return nil, errors.New("proxy auth requires --auth.trustedProxies with explicit proxy CIDRs")
+	}
+	for _, cidr := range trusted {
+		if _, err := netip.ParsePrefix(cidr); err != nil {
+			return nil, fmt.Errorf("invalid proxy CIDR %q: %w", cidr, err)
+		}
+	}
+	return &auth.ProxyAuth{Header: header, TrustedProxies: trusted}, nil
 }
 
 func getNoAuth() auth.Auther {

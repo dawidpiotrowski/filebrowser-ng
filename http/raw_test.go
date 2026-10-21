@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/filebrowser/filebrowser/v2/files"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 // Regression for the archive backslash-to-slash zip-slip (GHSA-83xp-526h-j3ww):
@@ -40,7 +40,7 @@ func TestRawArchiveDoesNotManufactureTraversal(t *testing.T) {
 	key := []byte("test-signing-key")
 	perm := users.Permissions{Download: true}
 	st := scopedUserStorage(t, userScope, perm, key)
-	signed := signToken(t, perm, key)
+	signed := signToken(t, st, perm, key)
 
 	req, _ := http.NewRequest(http.MethodGet, "/ziptest?algo=zip", http.NoBody)
 	req.Header.Set("X-Auth", signed)

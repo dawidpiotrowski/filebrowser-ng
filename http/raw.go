@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/filebrowser/filebrowser/v2/files"
-	"github.com/filebrowser/filebrowser/v2/fileutils"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/fileutils"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 	"github.com/mholt/archives"
 )
 
@@ -103,7 +103,19 @@ var rawHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *data) 
 	return rawDirHandler(w, r, d, file)
 })
 
+const maxArchiveEntries = 100000
+
+var errArchiveLimit = errors.New("archive tree exceeds entry or depth limit")
+
 func getFiles(d *data, path, commonPath string) ([]archives.FileInfo, error) {
+	count := 0
+	return getArchiveFiles(d, path, commonPath, make(map[string]bool), &count, 0)
+}
+
+func getArchiveFiles(d *data, path, commonPath string, visited map[string]bool, count *int, depth int) ([]archives.FileInfo, error) {
+	if depth > 128 || *count >= maxArchiveEntries {
+		return nil, errArchiveLimit
+	}
 	if !d.Check(path) {
 		return nil, nil
 	}
@@ -113,6 +125,21 @@ func getFiles(d *data, path, commonPath string) ([]archives.FileInfo, error) {
 		return nil, err
 	}
 
+	if !info.IsDir() && !info.Mode().IsRegular() {
+		return nil, nil
+	}
+
+	if info.IsDir() {
+		resolved, err := files.ResolvedVirtualPath(d.user.Fs, path)
+		if err != nil {
+			return nil, err
+		}
+		if visited[resolved] {
+			return nil, nil
+		}
+		visited[resolved] = true
+	}
+	*count++
 	var archiveFiles []archives.FileInfo
 
 	if path != commonPath {
@@ -156,9 +183,12 @@ func getFiles(d *data, path, commonPath string) ([]archives.FileInfo, error) {
 
 		for _, name := range names {
 			fPath := filepath.Join(path, name)
-			subFiles, err := getFiles(d, fPath, commonPath)
+			subFiles, err := getArchiveFiles(d, fPath, commonPath, visited, count, depth+1)
 			if err != nil {
-				log.Printf("Failed to get files from %s: %v", fPath, err)
+				if errors.Is(err, errArchiveLimit) {
+					return nil, err
+				}
+				log.Printf("Failed to get files from %q: %q", fPath, fmt.Sprint(err))
 				continue
 			}
 			archiveFiles = append(archiveFiles, subFiles...)
@@ -182,10 +212,15 @@ func rawDirHandler(w http.ResponseWriter, r *http.Request, d *data, file *files.
 	commonDir := fileutils.CommonPrefix(filepath.Separator, filenames...)
 
 	var allFiles []archives.FileInfo
+	visited := make(map[string]bool)
+	count := 0
 	for _, fname := range filenames {
-		archiveFiles, err := getFiles(d, fname, commonDir)
+		archiveFiles, err := getArchiveFiles(d, fname, commonDir, visited, &count, 0)
 		if err != nil {
-			log.Printf("Failed to get files from %s: %v", fname, err)
+			if errors.Is(err, errArchiveLimit) {
+				return http.StatusRequestEntityTooLarge, err
+			}
+			log.Printf("Failed to get files from %q: %q", fname, fmt.Sprint(err))
 			continue
 		}
 		allFiles = append(allFiles, archiveFiles...)
@@ -217,6 +252,9 @@ func rawDirHandler(w http.ResponseWriter, r *http.Request, d *data, file *files.
 }
 
 func rawFileHandler(w http.ResponseWriter, r *http.Request, file *files.FileInfo) (int, error) {
+	if !file.Mode.IsRegular() {
+		return http.StatusBadRequest, nil
+	}
 	fd, err := file.Fs.Open(file.Path)
 	if err != nil {
 		return http.StatusInternalServerError, err

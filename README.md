@@ -1,36 +1,50 @@
-> [!WARNING]
-> 
-> **File Browser is archived on 2026-09-01**. The last planned release has already shipped. There will be no further releases, bug fixes, or security fixes.   
+# filebrowser-ng
 
-<p align="center">
-  <img src="./branding/banner.png" width="550"/>
-</p>
+A maintained fork of [File Browser](https://github.com/filebrowser/filebrowser), starting from its final v2.63.23 release (commit `833d908884d5c801f30f5c098d7977177eb3a36b`). Upload, browse, preview, edit, and share files from a directory on your server.
 
-File Browser provides a file managing interface within a specified directory and it can be used to upload, delete, preview and edit your files. It is a **create-your-own-cloud**-kind of software where you can just install it on your server, direct it to a path and access your files through a nice web interface.
+This fork starts with a security hardening pass. Read the [audit and advisory inventory](docs/security/audit-2026-10-21.md) and [migration guide](docs/migration.md) before replacing an existing instance. The first fork release is not yet tagged; build from source for testing.
 
-**Background:** [Goodbye File Browser, for Real This Time](https://hacdias.com/2026/07/28/filebrowser/), July 2026.
+## Build and run
 
-## Security
+Requires Go 1.27.3 or later, Node.js 24 or later, and pnpm 10.33.4.
 
-Published advisories are listed under [security advisories](https://github.com/filebrowser/filebrowser/security/advisories),
-and reporting instructions are in [SECURITY.md](SECURITY.md). Two known issue classes
-remain unaddressed and will not be fixed:
+```sh
+git clone https://github.com/dawidpiotrowski/filebrowser-ng.git
+cd filebrowser-ng
+cd frontend
+pnpm install --frozen-lockfile
+pnpm run build
+cd ..
+go build -trimpath -o filebrowser-ng .
+./filebrowser-ng --root /path/to/files --database ./filebrowser.db --address 127.0.0.1 --port 8080
+```
 
-- **Command execution, runner, and hooks.** This feature is plagued with vulnerabilities across many published advisories, and would need a full rewrite to be made safe. It is disabled by default; if you re-enable it with `--disable-exec=false`, treat the ability to run commands as equivalent to shell access on the host. Background: [#5199](https://github.com/filebrowser/filebrowser/issues/5199).
-- **Session and JWT handling.** Sessions are self-contained JWTs rather than server-side identifiers, so they cannot be revoked, which means that logout, password changes, and renewal leave previously issued tokens valid until they expire, and the same refresh token can be redeemed repeatedly. Assume a leaked token is valid until expiry. Background: [#5216](https://github.com/filebrowser/filebrowser/issues/5216).
+The first startup creates the database and prints a random administrator password. Existing upstream databases remain readable. Back up your database and configuration first; all existing login sessions must log in again.
 
-If you keep running File Browser, treat it as unmaintained software:
+Alternatively, build the non-root container locally:
 
-- **Do not expose it directly to the internet.** Put it behind a reverse proxy that terminates TLS and performs its own authentication.
-- **Keep the command runner disabled.** It is off by default, so leave it off. See [#5199](https://github.com/filebrowser/filebrowser/issues/5199) and [`docs/command-execution.md`](docs/command-execution.md).
-- **Run it unprivileged, inside a container**, with only the directory you intend to serve mounted into it.
+```sh
+docker compose up --build -d
+```
 
-## Documentation
+The example listens on `127.0.0.1:8080`, persists files and the database in named volumes, drops capabilities, and uses a read-only root filesystem. The runtime image contains only the static Go executable and CA certificates; it has no shell. No fork images have been published to Docker Hub or GHCR yet.
 
-Documentation on how to install, configure, and build this project lives in [`docs`](docs) in this repository.
+## Security changes
 
-[CONTRIBUTING.md](CONTRIBUTING.md) documents how to build and develop the project, which remains useful to anyone forking it.
+- Persistent, revocable sessions: logout revokes the session, password changes invalidate old credentials, and renewal atomically consumes the previous token.
+- Command execution, event hooks, and hook authentication are removed. They cannot be re-enabled through an old database or flag.
+- Upload failures never recursively delete a destination. TUS validates lengths before touching files and serializes writes to one upload.
+- Access rules cover symlink targets. OS filesystem operations use traversal-resistant roots; archives skip special files and cycles.
+- Share revocation resolves the owner's actual scope when deleting or moving files. Password-protected shares use short-lived HttpOnly cookies instead of permanent URL tokens.
+- Subtitle conversion and text previews have bounded reads. Password work and login attempts are bounded; proxy identities require explicit trusted peer CIDRs.
+- Updated dependencies, security regression tests, CI, and Dependabot configuration.
 
-## License
+Use one writer process per storage tree. Redis upload coordination is rejected until writes can be fenced across processes. Put remote deployments behind TLS and a correctly configured reverse proxy. Keep the database outside the served directory; mount only data the service should access. Filesystem path rules do not protect against hard links or hostile host administrators.
 
-[Apache License 2.0](LICENSE) © File Browser Contributors
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), [documentation](docs/README.md), and [SECURITY.md](SECURITY.md). No audit guarantees that a program is free of vulnerabilities; the report records scope and remaining limitations.
+
+## License and provenance
+
+[Apache License 2.0](LICENSE). Original copyright and notices remain intact. File Browser contributors retain credit for the upstream code and fixes; the fork's changes are recorded in Git history. This project is independent of the upstream maintainers.

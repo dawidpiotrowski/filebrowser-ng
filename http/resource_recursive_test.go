@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 func recursiveTestHandler(t *testing.T, userScope string) (http.Handler, string) {
@@ -20,7 +20,7 @@ func recursiveTestHandler(t *testing.T, userScope string) (http.Handler, string)
 	perm := users.Permissions{Create: true, Modify: true, Download: true}
 	st := scopedUserStorage(t, userScope, perm, key)
 
-	return handle(resourceGetRecursiveHandler, "/api/resources/recursive", st, &settings.Server{}), signToken(t, perm, key)
+	return handle(resourceGetRecursiveHandler, "/api/resources/recursive", st, &settings.Server{}), signToken(t, st, perm, key)
 }
 
 func TestResourceRecursiveListsTree(t *testing.T) {

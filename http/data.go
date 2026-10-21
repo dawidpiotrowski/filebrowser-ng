@@ -1,6 +1,7 @@
 package fbhttp
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	gopath "path"
@@ -8,11 +9,13 @@ import (
 
 	"github.com/tomasen/realip"
 
-	"github.com/filebrowser/filebrowser/v2/rules"
-	"github.com/filebrowser/filebrowser/v2/runner"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/storage"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/rules"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/runner"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/sessions"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 type handleFunc func(w http.ResponseWriter, r *http.Request, d *data) (int, error)
@@ -24,6 +27,7 @@ type data struct {
 	store    *storage.Storage
 	user     *users.User
 	raw      interface{}
+	session  *sessions.Session
 
 	// checkerPrefix is prepended to every path before evaluating rules. It is
 	// set when the user's filesystem has been rebased onto a subdirectory (as
@@ -35,32 +39,45 @@ type data struct {
 
 // Check implements rules.Checker.
 func (d *data) Check(path string) bool {
-	if d.user.HideDotfiles && rules.MatchHidden(d.rulePath(path)) {
-		return false
-	}
-
-	return d.CheckRules(path)
+	return d.checkPath(path, true)
 }
 
-// CheckRules reports whether the global and user rules allow path. Unlike
-// Check, it ignores HideDotfiles: hiding dotfiles is a display preference, so
-// it must not stop a user from operating on a tree that contains one.
+// CheckRules ignores the dotfile display preference for recursive operations.
 func (d *data) CheckRules(path string) bool {
-	path = d.rulePath(path)
+	return d.checkPath(path, false)
+}
 
+func (d *data) checkPath(path string, hidden bool) bool {
+	if !d.checkRulePath(d.rulePath(path), hidden) {
+		return false
+	}
+	// Rules apply to both the requested name and the actual symlink target.
+	// Resolve against the owner's original root even for rebased public shares.
+	if d.user.Fs == nil {
+		return true
+	}
+	resolved, err := files.ResolvedVirtualPath(d.user.Fs, path)
+	if err != nil {
+		return false
+	}
+	return d.checkRulePath(d.rulePath(resolved), hidden)
+}
+
+func (d *data) checkRulePath(path string, hidden bool) bool {
+	if hidden && d.user.HideDotfiles && rules.MatchHidden(path) {
+		return false
+	}
 	allow := true
 	for _, rule := range d.settings.Rules {
 		if rule.Matches(path, d.server.CaseInsensitiveFs) {
 			allow = rule.Allow
 		}
 	}
-
 	for _, rule := range d.user.Rules {
 		if rule.Matches(path, d.server.CaseInsensitiveFs) {
 			allow = rule.Allow
 		}
 	}
-
 	return allow
 }
 
@@ -105,7 +122,7 @@ func handle(fn handleFunc, prefix string, store *storage.Storage, server *settin
 
 		if status >= 400 || err != nil {
 			clientIP := realip.FromRequest(r)
-			log.Printf("%s: %v %s %v", r.URL.Path, status, clientIP, err)
+			log.Printf("request path=%q status=%d peer=%q error=%q", r.URL.Path, status, clientIP, fmt.Sprint(err))
 		}
 
 		if status != 0 {

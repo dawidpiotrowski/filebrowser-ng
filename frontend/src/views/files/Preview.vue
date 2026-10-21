@@ -83,7 +83,8 @@
               requestCredentials: true,
             }"
             :epubOptions="{
-              allowPopups: true,
+              allowPopups: false,
+              allowScriptedContent: false,
             }"
             @update:location="locationChange"
           />
@@ -205,7 +206,7 @@ import { useI18n } from "vue-i18n";
 // Prevents browser memory issues with large files
 const CSV_MAX_SIZE = 5 * 1024 * 1024;
 
-const location = useStorage("book-progress", 0, undefined, {
+const location = useStorage<string | number>("book-progress", 0, undefined, {
   serializer: {
     read: (v) => JSON.parse(v),
     write: (v) => JSON.stringify(v),
@@ -218,7 +219,7 @@ const size = useStorage("book-size", 120, undefined, {
   },
 });
 
-const locationChange = (epubcifi: number) => {
+const locationChange = (epubcifi: string) => {
   location.value = epubcifi;
 };
 let rendition: Rendition | null = null;

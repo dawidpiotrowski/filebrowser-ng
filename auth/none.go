@@ -3,8 +3,8 @@ package auth
 import (
 	"net/http"
 
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 // MethodNoAuth is used to identify no auth.

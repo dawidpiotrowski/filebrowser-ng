@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/filebrowser/filebrowser/v2/cmd"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/cmd"
 )
 
 func main() {

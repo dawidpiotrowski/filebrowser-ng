@@ -1,0 +1,1242 @@
+[
+  {
+    "ghsa_id": "GHSA-39cx-23x9-5c8p",
+    "cve_id": "CVE-2026-90927",
+    "severity": "medium",
+    "summary": "Command WebSocket buffers unbounded messages before checking permissions",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-39cx-23x9-5c8p",
+    "published_at": "2026-08-31T06:27:00Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.23",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Removed attack surface: command execution and hooks"
+  },
+  {
+    "ghsa_id": "GHSA-448h-jr2h-3vhp",
+    "cve_id": "CVE-2026-90928",
+    "severity": "high",
+    "summary": "Subtitle conversion reads whole files into memory, allowing memory exhaustion",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-448h-jr2h-3vhp",
+    "published_at": "2026-08-31T06:27:04Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.23",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: bounded subtitle parser input"
+  },
+  {
+    "ghsa_id": "GHSA-c4fr-5f24-4wrj",
+    "cve_id": "CVE-2026-90929",
+    "severity": "high",
+    "summary": "Upload failure-cleanup recursively deletes directories, bypassing Perm.Delete and deny rules",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-c4fr-5f24-4wrj",
+    "published_at": "2026-08-31T06:26:54Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": ">= 2.5.0, <= 2.63.23",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: no recursive upload-error cleanup"
+  },
+  {
+    "ghsa_id": "GHSA-7w29-q235-57m9",
+    "cve_id": "CVE-2026-90930",
+    "severity": "medium",
+    "summary": "Symlink aliases inside a user scope bypass path deny rules",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-7w29-q235-57m9",
+    "published_at": "2026-08-31T08:22:50Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.23",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: rules check resolved symlink targets"
+  },
+  {
+    "ghsa_id": "GHSA-8q5j-8wcr-8v2v",
+    "cve_id": "CVE-2026-82235",
+    "severity": "medium",
+    "summary": "Archive downloads hang forever on named pipes",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-8q5j-8wcr-8v2v",
+    "published_at": "2026-08-14T08:09:05Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.23",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: special files refused before open"
+  },
+  {
+    "ghsa_id": "GHSA-r6pg-pg54-rcr5",
+    "cve_id": "CVE-2026-82236",
+    "severity": "low",
+    "summary": "Deleting another user's shared file leaves their public share link behind",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-r6pg-pg54-rcr5",
+    "published_at": "2026-08-14T08:09:07Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": ">= 2.63.6, <= 2.63.23",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: share revocation resolves owner scopes"
+  },
+  {
+    "ghsa_id": "GHSA-m8v4-4w34-rrvf",
+    "cve_id": "CVE-2026-82237",
+    "severity": "low",
+    "summary": "Renaming a shared file leaves the public share link behind",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-m8v4-4w34-rrvf",
+    "published_at": "2026-08-14T08:09:11Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.23",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: rename revokes affected shares"
+  },
+  {
+    "ghsa_id": "GHSA-4r8p-gqj2-mwgm",
+    "cve_id": "CVE-2026-82238",
+    "severity": "low",
+    "summary": "Concurrent TUS uploads write past the declared Upload-Length",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-4r8p-gqj2-mwgm",
+    "published_at": "2026-08-14T08:09:14Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": ">= 2.24.0, <= 2.63.23",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: serialized TUS mutation; Redis multi-writer disabled"
+  },
+  {
+    "ghsa_id": "GHSA-v3jv-rmh2-635j",
+    "cve_id": "CVE-2026-73611",
+    "severity": "medium",
+    "summary": "Expired JWTs accepted under proxy auth with a custom logout page",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-v3jv-rmh2-635j",
+    "published_at": "2026-07-27T15:33:19Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": ">= 2.50.0, <= 2.63.21",
+        "patched_versions": "v2.63.22",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-77x8-73f4-5485",
+    "cve_id": "CVE-2026-73612",
+    "severity": "high",
+    "summary": "Recursive copy, rename and delete ignore rules denying descendants",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-77x8-73f4-5485",
+    "published_at": "2026-07-27T15:33:22Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.21",
+        "patched_versions": "v2.63.22",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-7whw-q6gh-xr59",
+    "cve_id": "CVE-2026-72834",
+    "severity": "medium",
+    "summary": "File checksum disclosure via /api/resources endpoint bypassing Perm.Download check",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-7whw-q6gh-xr59",
+    "published_at": "2026-07-25T14:12:51Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.18",
+        "patched_versions": "2.63.19",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-m9f5-2232-frp6",
+    "cve_id": "CVE-2026-73613",
+    "severity": "high",
+    "summary": "Out-of-scope file deletion via symlink-following delete in TUS upload-cache eviction",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-m9f5-2232-frp6",
+    "published_at": "2026-07-27T15:33:32Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.18",
+        "patched_versions": "2.63.19",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-fgm5-pw99-w2p7",
+    "cve_id": "CVE-2026-72835",
+    "severity": "medium",
+    "summary": "Access rule bypass via case-variant and Windows-separator paths",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-fgm5-pw99-w2p7",
+    "published_at": "2026-07-27T05:43:24Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.20",
+        "patched_versions": "v2.63.21",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-576v-w77m-gr84",
+    "cve_id": "CVE-2026-72836",
+    "severity": "high",
+    "summary": "Case-folded signup usernames share one home directory on case-insensitive filesystems",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-576v-w77m-gr84",
+    "published_at": "2026-07-25T14:13:45Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.18",
+        "patched_versions": "2.63.19",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-j7jh-37pf-mf8h",
+    "cve_id": "CVE-2026-72837",
+    "severity": "high",
+    "summary": "Proxy and hook auto-provisioning ignore createUserDir and grant the server root scope",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-j7jh-37pf-mf8h",
+    "published_at": "2026-07-27T05:44:27Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.19",
+        "patched_versions": "2.63.20",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-ffv3-7h97-993q",
+    "cve_id": "CVE-2026-72838",
+    "severity": "medium",
+    "summary": "TUS uploads ignore the declared Upload-Length, allowing disk exhaustion by authenticated users",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-ffv3-7h97-993q",
+    "published_at": "2026-07-26T05:56:23Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.18",
+        "patched_versions": "2.63.19",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-833g-cqhp-h72j",
+    "cve_id": "CVE-2026-62684",
+    "severity": "low",
+    "summary": "Share API exposes the password hash and bypass token",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-833g-cqhp-h72j",
+    "published_at": "2026-07-04T06:04:14Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.16",
+        "patched_versions": "2.63.17",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-83xp-526h-j3ww",
+    "cve_id": "CVE-2026-62843",
+    "severity": "medium",
+    "summary": "Archive builder turns backslash filenames into path traversal (zip-slip)",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-83xp-526h-j3ww",
+    "published_at": "2026-07-04T06:04:17Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": ">= 2.63.6, <= 2.63.16",
+        "patched_versions": " 2.63.17",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-7rc3-g7h6-22m7",
+    "cve_id": "CVE-2026-62685",
+    "severity": "high",
+    "summary": "Colliding username normalization gives two users the same home directory",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-7rc3-g7h6-22m7",
+    "published_at": "2026-07-04T06:04:31Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.16",
+        "patched_versions": "2.63.17",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-6759-996p-gpj6",
+    "cve_id": "CVE-2026-72839",
+    "severity": "critical",
+    "summary": "Self-signup users inherit the server root as their scope",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-6759-996p-gpj6",
+    "published_at": "2026-07-25T05:22:20Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.16",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: signup requires separate per-user directories"
+  },
+  {
+    "ghsa_id": "GHSA-8wc8-hf36-mjh9",
+    "cve_id": "CVE-2026-55668",
+    "severity": "medium",
+    "summary": "ScopedFs follows a dangling symlink on write, letting a scoped user create files outside their scope",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-8wc8-hf36-mjh9",
+    "published_at": "2026-06-27T05:20:27Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.15",
+        "patched_versions": "2.63.16",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-pp88-jhwj-5qh5",
+    "cve_id": "CVE-2026-62683",
+    "severity": "low",
+    "summary": "Trailing-slash delete leaves a stale public share behind",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-pp88-jhwj-5qh5",
+    "published_at": "2026-06-28T06:01:43Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.16",
+        "patched_versions": "2.63.17",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-fmm7-x4gx-8jhr",
+    "cve_id": "CVE-2026-55667",
+    "severity": "high",
+    "summary": "Out-of-scope file deletion by a Create-only scoped user via symlink-following RemoveAll in upload failure-cleanup",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-fmm7-x4gx-8jhr",
+    "published_at": "2026-06-23T18:24:15Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.15",
+        "patched_versions": "2.63.16",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-gxjx-7m74-hcq8",
+    "cve_id": "CVE-2026-54093",
+    "severity": "medium",
+    "summary": "Path traversal in download-as-zip/tar via Windows-style backslash separators in stored filenames",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-gxjx-7m74-hcq8",
+    "published_at": "2026-06-06T05:55:25Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.5",
+        "patched_versions": "2.63.6",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-3q2p-72cj-682c",
+    "cve_id": "CVE-2026-54096",
+    "severity": "high",
+    "summary": "Improper Access Control Occurs via Pre-Created Public Share for a Non-existent Path",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-3q2p-72cj-682c",
+    "published_at": "2026-06-04T05:54:39Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": " <= 2.63.6",
+        "patched_versions": "2.63.7",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-239w-m3h6-ch8v",
+    "cve_id": "CVE-2026-54094",
+    "severity": "high",
+    "summary": "Symlinked directories let scoped users and public-share recipients read and write files outside their scope",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-239w-m3h6-ch8v",
+    "published_at": "2026-06-03T11:43:02Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.13",
+        "patched_versions": "2.63.14",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-v7vv-5wj2-gfcj",
+    "cve_id": "CVE-2026-54095",
+    "severity": "medium",
+    "summary": "Password reset does not invalidate existing JWT sessions",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-v7vv-5wj2-gfcj",
+    "published_at": "2026-06-03T09:27:10Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "2.x",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: persistent sessions bound to credentials"
+  },
+  {
+    "ghsa_id": "GHSA-8c9q-7855-wfxq",
+    "cve_id": "CVE-2026-54090",
+    "severity": "high",
+    "summary": "Command Execution Allowlist Bypass via Shell Metacharacter Injection",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-8c9q-7855-wfxq",
+    "published_at": "2026-06-03T08:07:50Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "2.x",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Removed attack surface: command execution and hooks"
+  },
+  {
+    "ghsa_id": "GHSA-5ww9-jg6q-38r7",
+    "cve_id": "CVE-2026-54097",
+    "severity": "high",
+    "summary": "Cross-user unauthorized share-link deletion via unbounded prefix match in DeleteWithPathPrefix",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-5ww9-jg6q-38r7",
+    "published_at": "2026-06-03T10:18:33Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.5",
+        "patched_versions": "2.63.6",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-j9jx-hp4c-ghhh",
+    "cve_id": "CVE-2026-54091",
+    "severity": "high",
+    "summary": "Incorrect access control in public directory shares via rule path rebasing",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-j9jx-hp4c-ghhh",
+    "published_at": "2026-06-06T05:55:29Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.5",
+        "patched_versions": "2.63.6",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-jvpw-637p-h3pw",
+    "cve_id": "CVE-2026-35585",
+    "severity": "high",
+    "summary": " Command Injection via Hook Runner",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-jvpw-637p-h3pw",
+    "published_at": "2026-04-04T07:45:11Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": ">= 2.x",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Removed attack surface: command execution and hooks"
+  },
+  {
+    "ghsa_id": "GHSA-m93h-4hw7-5qcm",
+    "cve_id": "CVE-2026-54088",
+    "severity": "critical",
+    "summary": "Command Injection via Authentication Hook Shell Substitution (Pre-Authentication RCE)",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-m93h-4hw7-5qcm",
+    "published_at": "2026-06-03T09:32:29Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.5",
+        "patched_versions": "2.63.6",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Removed attack surface: command execution and hooks"
+  },
+  {
+    "ghsa_id": "GHSA-7526-j432-6ppp",
+    "cve_id": "CVE-2026-35607",
+    "severity": "medium",
+    "summary": "Proxy auth auto-provisioned users inherit Execute permission and Commands",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-7526-j432-6ppp",
+    "published_at": "2026-04-04T20:31:28Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.62.2",
+        "patched_versions": "2.63.1",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-67cg-cpj7-qgc9",
+    "cve_id": "CVE-2026-35606",
+    "severity": "medium",
+    "summary": "Text file content disclosure via /api/resources endpoint bypassing Perm.Download check",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-67cg-cpj7-qgc9",
+    "published_at": "2026-04-04T20:31:22Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.62.2",
+        "patched_versions": "2.63.1",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-5q48-q4fm-g3m6",
+    "cve_id": "CVE-2026-35605",
+    "severity": "medium",
+    "summary": "Access rule bypass via HasPrefix without trailing separator in path matching",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-5q48-q4fm-g3m6",
+    "published_at": "2026-04-04T20:31:18Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.62.2",
+        "patched_versions": "2.63.1",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-v9w4-gm2x-6rvf",
+    "cve_id": "CVE-2026-35604",
+    "severity": "high",
+    "summary": "Share links remain accessible after Share/Download permissions are revoked",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-v9w4-gm2x-6rvf",
+    "published_at": "2026-04-04T20:31:14Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.62.2",
+        "patched_versions": "2.63.1",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-xfqj-3vmx-63wv",
+    "cve_id": "CVE-2026-34530",
+    "severity": "medium",
+    "summary": "Stored Cross-Site Scripting via text/template branding injection",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-xfqj-3vmx-63wv",
+    "published_at": "2026-03-28T19:03:19Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.62.1",
+        "patched_versions": "2.62.2",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-5vpr-4fgw-f69h",
+    "cve_id": "CVE-2026-34529",
+    "severity": "high",
+    "summary": "Stored Cross-Site Scripting via crafted EPUB file",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-5vpr-4fgw-f69h",
+    "published_at": "2026-03-28T19:03:22Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.62.1",
+        "patched_versions": "2.62.2",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-x8jc-jvqm-pm3f",
+    "cve_id": "CVE-2026-34528",
+    "severity": "high",
+    "summary": "Signup Grants Execution Permissions When Default Permissions Includes Execution",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-x8jc-jvqm-pm3f",
+    "published_at": "2026-03-28T19:03:25Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.62.1",
+        "patched_versions": "2.62.2",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-ffx7-75gc-jg7c",
+    "cve_id": "CVE-2026-32759",
+    "severity": "medium",
+    "summary": "TUS Negative Upload-Length Fires Post-Upload Hooks Prematurely",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-ffx7-75gc-jg7c",
+    "published_at": "2026-03-14T07:20:08Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.61.2",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: upload length validated before file mutation"
+  },
+  {
+    "ghsa_id": "GHSA-5gg9-5g7w-hm73",
+    "cve_id": "CVE-2026-32760",
+    "severity": "critical",
+    "summary": "Signup Grants Admin When Default Permissions Include Admin",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-5gg9-5g7w-hm73",
+    "published_at": "2026-03-14T08:16:24Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.61.2",
+        "patched_versions": "2.62.0",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-9f3r-2vgw-m8xp",
+    "cve_id": "CVE-2026-32758",
+    "severity": "medium",
+    "summary": "Access Rule Bypass via Path Traversal in Copy/Rename Destination Parameter",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-9f3r-2vgw-m8xp",
+    "published_at": "2026-03-14T12:43:12Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.61.2",
+        "patched_versions": "2.62.0",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-xqp3-jq6g-x3qm",
+    "cve_id": "CVE-2026-54089",
+    "severity": "high",
+    "summary": "Authentication Bypass via Proxy Auth Header Forgery",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-xqp3-jq6g-x3qm",
+    "published_at": "2026-06-03T08:03:47Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "2.x",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: proxy assertions require explicit trusted peer CIDRs"
+  },
+  {
+    "ghsa_id": "GHSA-79pf-vx4x-7jmm",
+    "cve_id": "CVE-2026-29188",
+    "severity": "critical",
+    "summary": "TUS Delete Endpoint Bypasses Delete Permission Check",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-79pf-vx4x-7jmm",
+    "published_at": "2026-03-04T10:14:58Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.61.0",
+        "patched_versions": "2.61.1",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-68j5-4m99-w9w9",
+    "cve_id": "CVE-2026-32761",
+    "severity": "medium",
+    "summary": "Authorization Policy Bypass in Public Share Download Flow",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-68j5-4m99-w9w9",
+    "published_at": "2026-03-17T07:15:40Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "https://github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "<=2.61.0",
+        "patched_versions": "2.62.0",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-mr74-928f-rw69",
+    "cve_id": "CVE-2026-28492",
+    "severity": "high",
+    "summary": "Path Traversal in Public Share Links Exposes Files Outside Shared Directory",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-mr74-928f-rw69",
+    "published_at": "2026-02-28T10:46:01Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.60.0",
+        "patched_versions": "2.61.0",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-hxw8-4h9j-hq2r",
+    "cve_id": "CVE-2026-25889",
+    "severity": "medium",
+    "summary": "Authentication Bypass in User Password Update",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-hxw8-4h9j-hq2r",
+    "published_at": "2026-02-08T07:33:46Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.57.0",
+        "patched_versions": "2.57.1",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-4mh3-h929-w968",
+    "cve_id": "CVE-2026-25890",
+    "severity": "high",
+    "summary": "Path-Based Access Control Bypass via Multiple Leading Slashes in URL",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-4mh3-h929-w968",
+    "published_at": "2026-02-08T12:21:09Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.57.0",
+        "patched_versions": "2.57.1",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-43mm-m3h2-3prc",
+    "cve_id": "CVE-2026-23849",
+    "severity": "medium",
+    "summary": "Username Enumeration via Timing Attack in /api/login",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-43mm-m3h2-3prc",
+    "published_at": "2026-01-18T09:35:49Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "< 2.54.0",
+        "patched_versions": "2.55.0",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-6jqf-mv7m-3q7p",
+    "cve_id": "CVE-2025-22871",
+    "severity": "critical",
+    "summary": "Risk of HTTP Request/Response smuggling through vulnerable dependency",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-6jqf-mv7m-3q7p",
+    "published_at": "2025-11-13T17:49:31Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.45.1",
+        "patched_versions": "2.45.2",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-6cqf-cfhv-659g",
+    "cve_id": "CVE-2025-64523",
+    "severity": "high",
+    "summary": "Insecure Direct Object Reference (IDOR) in Share Deletion Function",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-6cqf-cfhv-659g",
+    "published_at": "2025-11-11T07:23:02Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "<= 2.45.0",
+        "patched_versions": "2.45.1",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-w5fm-68j4-fpc4",
+    "cve_id": "CVE-2026-54092",
+    "severity": "medium",
+    "summary": "DoS Vulnerability on Public Login API",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-w5fm-68j4-fpc4",
+    "published_at": "2026-06-03T09:33:53Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser/v2"
+        },
+        "vulnerable_version_range": "<= 2.63.5",
+        "patched_versions": "2.63.6",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-7xwp-2cpp-p8r7",
+    "cve_id": "CVE-2025-53826",
+    "severity": "high",
+    "summary": "Insecure JWT Handling Allows Session Replay Attacks after Logout",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-7xwp-2cpp-p8r7",
+    "published_at": "2025-07-15T17:26:25Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "2.39.0",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: logout revokes session; renewal consumes old token"
+  },
+  {
+    "ghsa_id": "GHSA-7xqm-7738-642x",
+    "cve_id": "CVE-2025-53893",
+    "severity": "high",
+    "summary": "Uncontrolled Memory Consumption Due to Oversized File Processing",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-7xqm-7738-642x",
+    "published_at": "2025-07-15T17:15:45Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "2.38.0",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: bounded text reads and streamed encoded download"
+  },
+  {
+    "ghsa_id": "GHSA-rmwh-g367-mj4x",
+    "cve_id": "CVE-2025-52901",
+    "severity": "medium",
+    "summary": "Sensitive Data Transferred in URL",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-rmwh-g367-mj4x",
+    "published_at": "2025-06-29T14:07:29Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "<= 2.33.0",
+        "patched_versions": ">= 2.33.9",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-3v48-283x-f2w4",
+    "cve_id": "CVE-2025-52996",
+    "severity": "low",
+    "summary": "Password Protection of Links Bypassable",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-3v48-283x-f2w4",
+    "published_at": "2025-06-29T14:05:14Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "2.32.0",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Fixed: permanent URL tokens replaced by expiring cookies"
+  },
+  {
+    "ghsa_id": "GHSA-cm2r-rg7r-p7gg",
+    "cve_id": "CVE-2025-52997",
+    "severity": "medium",
+    "summary": "Insecure Password Handling",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-cm2r-rg7r-p7gg",
+    "published_at": "2025-06-30T12:36:31Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "<= 2.34.0",
+        "patched_versions": "2.34.1",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-3q2w-42mv-cph4",
+    "cve_id": "CVE-2025-52903",
+    "severity": "high",
+    "summary": "Shell Commands Can Spawn Other Commands",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-3q2w-42mv-cph4",
+    "published_at": "2025-06-26T17:50:11Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "2.x",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Removed attack surface: command execution and hooks"
+  },
+  {
+    "ghsa_id": "GHSA-hc8f-m8g5-8362",
+    "cve_id": "CVE-2025-52904",
+    "severity": "high",
+    "summary": "Command Execution not Limited to Scope",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-hc8f-m8g5-8362",
+    "published_at": "2025-06-26T17:50:29Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "2.x",
+        "patched_versions": "",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Removed attack surface: command execution and hooks"
+  },
+  {
+    "ghsa_id": "GHSA-jj2r-455p-5gvf",
+    "cve_id": "CVE-2025-52900",
+    "severity": "medium",
+    "summary": "Insecure File Permissions",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-jj2r-455p-5gvf",
+    "published_at": "2025-06-26T12:08:14Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "<= 2.33.6",
+        "patched_versions": "2.33.7",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  },
+  {
+    "ghsa_id": "GHSA-w7qc-6grj-w7r8",
+    "cve_id": "CVE-2025-52995",
+    "severity": "high",
+    "summary": "Command Execution Allowlist Bypass",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-w7qc-6grj-w7r8",
+    "published_at": "2025-06-30T12:39:41Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "<= 2.33.8",
+        "patched_versions": ">= 2.33.10",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Removed attack surface: command execution and hooks"
+  },
+  {
+    "ghsa_id": "GHSA-4wx8-5gm2-2j97",
+    "cve_id": "CVE-2025-52902",
+    "severity": "high",
+    "summary": "Stored Cross-Site Scripting",
+    "html_url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-4wx8-5gm2-2j97",
+    "published_at": "2025-06-26T11:15:58Z",
+    "vulnerabilities": [
+      {
+        "package": {
+          "ecosystem": "go",
+          "name": "github.com/filebrowser/filebrowser"
+        },
+        "vulnerable_version_range": "<= 2.33.6",
+        "patched_versions": "2.33.7",
+        "vulnerable_functions": []
+      }
+    ],
+    "fork_status": "Inherited upstream fix in v2.63.23 baseline"
+  }
+]

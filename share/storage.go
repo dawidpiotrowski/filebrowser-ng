@@ -3,7 +3,7 @@ package share
 import (
 	"time"
 
-	fberrors "github.com/filebrowser/filebrowser/v2/errors"
+	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
 )
 
 // StorageBackend is the interface to implement for a share storage.
@@ -36,16 +36,17 @@ func (s *Storage) All() ([]*Link, error) {
 		return nil, err
 	}
 
-	for i, link := range links {
+	valid := make([]*Link, 0, len(links))
+	for _, link := range links {
 		if link.Expire != 0 && link.Expire <= time.Now().Unix() {
 			if err := s.Delete(link.Hash); err != nil {
 				return nil, err
 			}
-			links = append(links[:i], links[i+1:]...)
+			continue
 		}
+		valid = append(valid, link)
 	}
-
-	return links, nil
+	return valid, nil
 }
 
 // FindByUserID wraps a StorageBackend.FindByUserID.
@@ -56,16 +57,17 @@ func (s *Storage) FindByUserID(id uint) ([]*Link, error) {
 		return nil, err
 	}
 
-	for i, link := range links {
+	valid := make([]*Link, 0, len(links))
+	for _, link := range links {
 		if link.Expire != 0 && link.Expire <= time.Now().Unix() {
 			if err := s.Delete(link.Hash); err != nil {
 				return nil, err
 			}
-			links = append(links[:i], links[i+1:]...)
+			continue
 		}
+		valid = append(valid, link)
 	}
-
-	return links, nil
+	return valid, nil
 }
 
 // GetByHash wraps a StorageBackend.GetByHash.
@@ -98,16 +100,17 @@ func (s *Storage) Gets(path string, id uint) ([]*Link, error) {
 		return nil, err
 	}
 
-	for i, link := range links {
+	valid := make([]*Link, 0, len(links))
+	for _, link := range links {
 		if link.Expire != 0 && link.Expire <= time.Now().Unix() {
 			if err := s.Delete(link.Hash); err != nil {
 				return nil, err
 			}
-			links = append(links[:i], links[i+1:]...)
+			continue
 		}
+		valid = append(valid, link)
 	}
-
-	return links, nil
+	return valid, nil
 }
 
 // Save wraps a StorageBackend.Save

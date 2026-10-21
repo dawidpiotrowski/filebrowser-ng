@@ -3,9 +3,9 @@ package users
 import (
 	"path/filepath"
 
-	fberrors "github.com/filebrowser/filebrowser/v2/errors"
-	"github.com/filebrowser/filebrowser/v2/files"
-	"github.com/filebrowser/filebrowser/v2/rules"
+	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/rules"
 	"github.com/spf13/afero"
 )
 

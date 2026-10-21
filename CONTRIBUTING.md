@@ -1,115 +1,27 @@
-# Building File Browser
+# Developing filebrowser-ng
 
-This project is archived on 2026-09-01. Pull requests are not accepted and no further changes are merged. This document is kept as build documentation for anyone wishing to build the project from source.
+The server is Go, and `frontend/` contains the Vue application. Build the frontend before building a distributable server; Go embeds `frontend/dist`.
 
-## Project Structure
+Use Go 1.27.3 or later, Node.js 24 or later, and the pnpm version pinned by `frontend/package.json`.
 
-The backend side of the application is written in [Go](https://golang.org/), while the frontend (located on a subdirectory of the same name) is written in [Vue.js](https://vuejs.org/). Due to the tight coupling required by some features, basic knowledge of both Go and Vue.js is recommended.
-
-* Learn Go: [https://github.com/golang/go/wiki/Learn](https://github.com/golang/go/wiki/Learn)
-* Learn Vue.js: [https://vuejs.org/guide/introduction.html](https://vuejs.org/guide/introduction.html)
-
-We encourage you to use git to manage your fork. To clone the main repository, just run:
-
-```bash
-git clone https://github.com/filebrowser/filebrowser
-```
-
-We use [Taskfile](https://taskfile.dev/) to manage the different processes (building, releasing, etc) automatically.
-
-## Build
-
-You can fully build the project in order to produce a binary by running:
-
-```bash
-task build
-```
-
-## Development
-
-For development, there are a few things to have in mind.
-
-### Frontend
-
-We use [Node.js](https://nodejs.org/en/) on the frontend to manage the build process. Prepare the frontend environment:
-
-```bash
-# From the root of the repo, go to frontend/
+```sh
 cd frontend
-
-# Install the dependencies
-pnpm install
-```
-
-If you just want to develop the backend, you can create a static build of the frontend:
-
-```bash
+pnpm install --frozen-lockfile
+pnpm run lint
+pnpm run test
 pnpm run build
+pnpm audit --audit-level=low
+cd ..
+go vet ./...
+go test -race -timeout 5m ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+go build -trimpath -o filebrowser-ng .
 ```
 
-If you want to develop the frontend, start a development server which watches for changes:
+`task build` is an alternative when Task is installed. The static runtime image is built from source with `docker build -t filebrowser-ng:local .`.
 
-```bash
-pnpm run dev
-```
+For a security fix, add a small regression that fails on the vulnerable behavior and confirms normal operations still work. Keep storage compatibility, user permissions, and cross-platform behavior in mind. Update `docs/security/` and the migration guide for security-related compatibility changes.
 
-Please note that you need to access File Browser's interface through the development server of the frontend.
+The frontend carries a bounded-nesting patch for `braces@3.0.3`. The single audit exception is tied to that exact patch and its regression tests; do not remove the patch or broaden the exception. Dependency overrides need a build and preview regression check when upgraded.
 
-### Backend
-
-First prepare the backend environment by downloading all required dependencies:
-
-```bash
-go mod download
-```
-
-You can now build or run File Browser as any other Go project:
-
-```bash
-# Build
-go build
-
-# Run
-go run .
-```
-
-## Documentation
-
-Documentation lives in [`docs`](docs) as plain Markdown and is no longer built into a site. The command line reference in [`docs/cli`](docs/cli) is generated from the commands themselves:
-
-```bash
-task docs:cli:generate
-```
-
-## Release
-
-To make a release, just run:
-
-```bash
-task release
-```
-
-## Translations
-
-The Transifex integration stopped on 2026-09-01 and translations submitted there no longer reach this repository. Locale files live in [`frontend/src/i18n`](frontend/src/i18n) and can be edited directly.
-
-## Authentication Provider
-
-To build a new authentication provider, you need to implement the [Auther interface](https://github.com/filebrowser/filebrowser/blob/master/auth/auth.go), whose method will be called on the login page after the user has submitted their login data.
-
-```go
-// Auther is the authentication interface.
-type Auther interface {
-    // Auth is called to authenticate a request.
-    Auth(r *http.Request, s *users.Storage, root string) (*users.User, error)
-}
-```
-
-After implementing the interface you should:
-
-1. Add it to [`auth` directory](https://github.com/filebrowser/filebrowser/blob/master/auth).
-2. Add it to the [configuration parser](https://github.com/filebrowser/filebrowser/blob/master/cmd/config.go) for the CLI.
-3. Add it to the [`authBackend.Get`](https://github.com/filebrowser/filebrowser/blob/master/storage/bolt/auth.go).
-
-If you need to add more flags, please update the function `addConfigFlags`.
-
+Release packaging in `.goreleaser.yml` generates fork-named binaries and checksums. No workflow publishes to the upstream Docker Hub repository or Homebrew tap. Configure release destinations explicitly before tagging a release.

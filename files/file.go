@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	fberrors "github.com/filebrowser/filebrowser/v2/errors"
-	"github.com/filebrowser/filebrowser/v2/rules"
+	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/rules"
 	"github.com/spf13/afero"
 )
 
@@ -270,12 +270,20 @@ func (i *FileInfo) detectType(modify, saveContent, readHeader bool, calcImgRes b
 		}
 
 		if saveContent {
-			afs := &afero.Afero{Fs: i.Fs}
-			content, err := afs.ReadFile(i.Path)
+			fd, err := i.Fs.Open(i.Path)
+			if err != nil {
+				return err
+			}
+			defer fd.Close()
+			content, err := io.ReadAll(io.LimitReader(fd, 10*1024*1024+1))
 			if err != nil {
 				return err
 			}
 
+			if len(content) > 10*1024*1024 {
+				i.Type = "blob"
+				return nil
+			}
 			i.Content = string(content)
 		}
 		return nil

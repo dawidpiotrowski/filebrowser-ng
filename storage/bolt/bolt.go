@@ -3,11 +3,11 @@ package bolt
 import (
 	"github.com/asdine/storm/v3"
 
-	"github.com/filebrowser/filebrowser/v2/auth"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/share"
-	"github.com/filebrowser/filebrowser/v2/storage"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/auth"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/share"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 // NewStorage creates a storage.Storage based on Bolt DB.
@@ -24,6 +24,7 @@ func NewStorage(db *storm.DB) (*storage.Storage, error) {
 
 	return &storage.Storage{
 		Auth:     authStore,
+		Sessions: sessionBackend{db: db},
 		Users:    userStore,
 		Share:    shareStore,
 		Settings: settingsStore,

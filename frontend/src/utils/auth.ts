@@ -10,8 +10,6 @@ export function parseToken(token: string) {
   // falsy or malformed jwt will throw InvalidTokenError
   const data = jwtDecode<JwtPayload & { user: IUser }>(token);
 
-  document.cookie = `auth=${token}; Path=/; SameSite=Strict;`;
-
   localStorage.setItem("jwt", token);
 
   const authStore = useAuthStore();
@@ -75,7 +73,21 @@ export async function login(
   }
 }
 
-export async function renew(jwt: string) {
+let renewal: Promise<void> | null = null;
+
+export function renew(jwt: string): Promise<void> {
+  // Several responses can request a renewal at once. Consume each session once.
+  const current = useAuthStore().jwt;
+  if (current && current !== jwt) return Promise.resolve();
+  if (!renewal) {
+    renewal = renewSession(jwt).finally(() => {
+      renewal = null;
+    });
+  }
+  return renewal;
+}
+
+async function renewSession(jwt: string) {
   const res = await fetch(`${baseURL}/api/renew`, {
     method: "POST",
     headers: {
@@ -115,10 +127,33 @@ export async function signup(username: string, password: string) {
   }
 }
 
-export function logout(reason?: string) {
-  document.cookie = "auth=; Max-Age=0; Path=/; SameSite=Strict;";
-
+export async function logout(reason?: string) {
+  // Revoke the replacement if a renewal was already in flight.
+  if (renewal) {
+    try {
+      await renewal;
+    } catch {
+      /* An expired session can still be cleared. */
+    }
+  }
   const authStore = useAuthStore();
+  const token = authStore.jwt || localStorage.getItem("jwt");
+  if (token) {
+    // Wait for revocation before navigating away. If the server is unreachable,
+    // retain the session locally so logout can be retried.
+    const response = await fetch(`${baseURL}/api/logout`, {
+      method: "POST",
+      headers: { "X-Auth": token },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok && response.status !== 401) {
+      throw new StatusError(
+        "Unable to revoke session; retry logout",
+        response.status
+      );
+    }
+  }
+  if (authStore.logoutTimer) clearTimeout(authStore.logoutTimer);
   authStore.clearUser();
 
   localStorage.setItem("jwt", "");

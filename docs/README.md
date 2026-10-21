@@ -1,49 +1,12 @@
-<p align="center">
-  <img src="../branding/banner.png" width="550"/>
-</p>
-
-> [!WARNING]
->
-> **File Browser is archived on 2026-09-01.** There will be no further releases and no security fixes. Existing releases and Docker images stay online. For the known unaddressed security issues and hardening guidance, read the [README](../README.md#security).
-
-File Browser provides a file managing interface within a specified directory and it can be used to upload, delete, preview and edit your files. It is a **create-your-own-cloud**-kind of software where you can just install it on your server, direct it to a path and access your files through a nice web interface.
-
-![Preview](static/example.gif)
-
-## Contents
+# filebrowser-ng documentation
 
 - [Installation](installation.md)
-- [Customization](customization.md)
+- [Migration from File Browser](migration.md)
+- [Security audit and advisory inventory](security/audit-2026-10-21.md)
 - [Authentication](authentication.md)
-- [Command Execution](command-execution.md)
 - [Deployment](deployment.md)
-- [Troubleshooting](troubleshooting.md)
-- [Command Line Usage](cli/filebrowser.md)
+- [Customization](customization.md)
+- [Removed command execution](command-execution.md)
+- [Development](../CONTRIBUTING.md)
 
-Project-level documents live in the repository root: [README](../README.md), [Building File Browser](../CONTRIBUTING.md), [Security Policy](../SECURITY.md), [Code of Conduct](../CODE-OF-CONDUCT.md), [Changelog](../CHANGELOG.md) and [License](../LICENSE).
-
-## Features
-
-- **Easy Login System**
-
-  ![Login screen](static/1.jpg)
-
-- **Sleek Interface**
-
-  ![File listing](static/2.jpg)
-
-- **User Management**
-
-  ![User management](static/3.jpg)
-
-- **File Editing**
-
-  ![File editor](static/4.jpg)
-
-- **Custom Commands**
-
-  ![Command runner](static/5.jpg)
-
-- **Customization**
-
-  ![Customization settings](static/6.jpg)
+The inherited CLI reference and older screenshots describe File Browser v2.63.23. The executable is now named `filebrowser-ng`; the migration guide takes precedence where behavior differs. Regenerate the CLI reference with `task docs:cli:generate` when preparing a release.

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	fberrors "github.com/filebrowser/filebrowser/v2/errors"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/users"
+	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 type mockUserStore struct {
@@ -75,8 +75,9 @@ func TestProxyAuthCreateUserRestrictsDefaults(t *testing.T) {
 		},
 	}
 
-	auth := ProxyAuth{Header: "X-Remote-User"}
+	auth := ProxyAuth{Header: "X-Remote-User", TrustedProxies: []string{"127.0.0.1/32"}}
 	req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
+	req.RemoteAddr = "127.0.0.1:1234"
 	req.Header.Set("X-Remote-User", "newproxyuser")
 
 	user, err := auth.Auth(req, store, s, srv)
@@ -116,9 +117,10 @@ func TestProxyAuthCreateUserDirIsolatesScope(t *testing.T) {
 		},
 	}
 
-	auth := ProxyAuth{Header: "X-Remote-User"}
+	auth := ProxyAuth{Header: "X-Remote-User", TrustedProxies: []string{"127.0.0.1/32"}}
 	provision := func(name string) *users.User {
 		req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
+		req.RemoteAddr = "127.0.0.1:1234"
 		req.Header.Set("X-Remote-User", name)
 		u, err := auth.Auth(req, store, s, srv)
 		if err != nil {
@@ -138,5 +140,28 @@ func TestProxyAuthCreateUserDirIsolatesScope(t *testing.T) {
 	}
 	if alice.Scope != "/users/alice" {
 		t.Errorf("expected /users/alice, got %q", alice.Scope)
+	}
+}
+
+func TestProxyAuthenticationRequiresTrustedPeer(t *testing.T) {
+	proxy := ProxyAuth{Header: "X-User", TrustedProxies: []string{"127.0.0.1/32", "::1/128"}}
+	for _, tc := range []struct {
+		peer    string
+		trusted bool
+	}{
+		{"127.0.0.1:1234", true}, {"[::1]:1234", true}, {"203.0.113.5:1234", false}, {"", false},
+	} {
+		r, _ := http.NewRequest("POST", "/api/login", nil)
+		r.RemoteAddr = tc.peer
+		r.Header.Set("X-Forwarded-For", "127.0.0.1")
+		r.Header.Set("X-User", "admin")
+		if got := proxy.Trusted(r); got != tc.trusted {
+			t.Errorf("peer %q trusted=%v", tc.peer, got)
+		}
+		if !tc.trusted {
+			if _, err := proxy.Auth(r, nil, nil, nil); err == nil {
+				t.Error("forged proxy identity accepted")
+			}
+		}
 	}
 }

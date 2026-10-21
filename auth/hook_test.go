@@ -3,11 +3,10 @@ package auth
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 // writeHookScript writes a POSIX shell script to a temp file and returns its
@@ -26,67 +25,10 @@ func writeHookScript(t *testing.T, body string) string {
 // injected into the hook command string. Credentials must only ever reach the
 // hook through the USERNAME/PASSWORD environment variables, never via string
 // substitution into the command itself (CWE-78/CWE-88).
-func TestRunCommandNoCredentialInjection(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("uses POSIX shell")
-	}
-
-	marker := filepath.Join(t.TempDir(), "pwned")
-
-	// The hook simply blocks. If the credential were ever interpolated into the
-	// command string and evaluated by a shell, the embedded `touch` would
-	// create the marker file.
-	script := writeHookScript(t, "echo hook.action=block\n")
-
-	a := &HookAuth{
-		Command: script,
-		Cred: hookCred{
-			Username: `"; touch ` + marker + `; #`,
-			Password: `$(touch ` + marker + `)`,
-		},
-	}
-
-	action, err := a.RunCommand()
-	if err != nil {
-		t.Fatalf("RunCommand returned error: %v", err)
-	}
-	if action != "block" {
-		t.Fatalf("expected action %q, got %q", "block", action)
-	}
-	if _, err := os.Stat(marker); err == nil {
-		t.Fatalf("credential injection executed: marker file %q was created", marker)
-	}
-}
-
-// TestRunCommandReceivesCredentialsViaEnv verifies the supported contract: the
-// hook receives credentials through the USERNAME and PASSWORD environment
-// variables.
-func TestRunCommandReceivesCredentialsViaEnv(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("uses POSIX shell")
-	}
-
-	script := writeHookScript(t, `if [ "$USERNAME" = alice ] && [ "$PASSWORD" = secret ]; then
-  echo hook.action=auth
-else
-  echo hook.action=block
-fi
-`)
-
-	a := &HookAuth{
-		Command: script,
-		Cred: hookCred{
-			Username: "alice",
-			Password: "secret",
-		},
-	}
-
-	action, err := a.RunCommand()
-	if err != nil {
-		t.Fatalf("RunCommand returned error: %v", err)
-	}
-	if action != "auth" {
-		t.Fatalf("expected action %q, got %q", "auth", action)
+func TestHookExecutionRemoved(t *testing.T) {
+	a := &HookAuth{Command: "sh -c 'echo auth'"}
+	if _, err := a.RunCommand(); !os.IsPermission(err) {
+		t.Fatalf("hook executed: %v", err)
 	}
 }
 

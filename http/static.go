@@ -15,10 +15,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/filebrowser/filebrowser/v2/auth"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/storage"
-	"github.com/filebrowser/filebrowser/v2/version"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/auth"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/version"
+	"github.com/spf13/afero"
 )
 
 func handleWithStaticData(w http.ResponseWriter, _ *http.Request, d *data, fSys fs.FS, file, contentType string) (int, error) {
@@ -47,7 +49,7 @@ func handleWithStaticData(w http.ResponseWriter, _ *http.Request, d *data, fSys 
 		"Theme":                 d.settings.Branding.Theme,
 		"EnableThumbs":          d.server.EnableThumbnails,
 		"ResizePreview":         d.server.ResizePreview,
-		"EnableExec":            d.server.EnableExec,
+		"EnableExec":            false,
 		"TusSettings":           d.settings.Tus,
 		"HideLoginButton":       d.settings.HideLoginButton,
 	}
@@ -85,7 +87,8 @@ func handleWithStaticData(w http.ResponseWriter, _ *http.Request, d *data, fSys 
 		return http.StatusInternalServerError, err
 	}
 
-	data["Json"] = template.JS(strings.ReplaceAll(string(b), `'`, `\'`))
+	// Let html/template serialize JSON in JavaScript context without trusting raw JS.
+	data["Json"] = json.RawMessage(b)
 
 	fileContents, err := fs.ReadFile(fSys, file)
 	if err != nil {
@@ -127,18 +130,12 @@ func getStaticHandlers(store *storage.Storage, server *settings.Server, assetsFs
 		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%v", maxAge))
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 
-		if d.settings.Branding.Files != "" {
-			if strings.HasPrefix(r.URL.Path, "img/") {
-				fPath := filepath.Join(d.settings.Branding.Files, r.URL.Path)
-				_, err := os.Stat(fPath)
-				if err != nil && !os.IsNotExist(err) {
-					log.Printf("could not load branding file override: %v", err)
-				} else if err == nil {
-					http.ServeFile(w, r, fPath)
-					return 0, nil
-				}
-			} else if r.URL.Path == "custom.css" && d.settings.Branding.Files != "" {
-				http.ServeFile(w, r, filepath.Join(d.settings.Branding.Files, "custom.css"))
+		if d.settings.Branding.Files != "" && (strings.HasPrefix(r.URL.Path, "img/") || r.URL.Path == "custom.css") {
+			served, err := serveBrandingFile(w, r, d.settings.Branding.Files, r.URL.Path)
+			if err != nil {
+				return errToStatus(err), err
+			}
+			if served {
 				return 0, nil
 			}
 		}
@@ -180,4 +177,30 @@ func getStaticHandlers(store *storage.Storage, server *settings.Server, assetsFs
 	}, "/static/", store, server)
 
 	return index, static
+}
+
+// Branding overrides use the same confined filesystem as user content. This
+// also rejects Windows backslash traversal before a host filesystem sees it.
+func serveBrandingFile(w http.ResponseWriter, r *http.Request, root, name string) (bool, error) {
+	if !fs.ValidPath(name) || strings.Contains(name, "\\") {
+		return false, os.ErrPermission
+	}
+	branding := files.NewScopedFs(afero.NewOsFs(), root)
+	f, err := branding.Open(name)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return false, err
+	}
+	if !info.Mode().IsRegular() {
+		return false, os.ErrPermission
+	}
+	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
+	return true, nil
 }

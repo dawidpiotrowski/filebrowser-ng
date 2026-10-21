@@ -13,9 +13,10 @@ import (
 	"strings"
 	"time"
 
-	fberrors "github.com/filebrowser/filebrowser/v2/errors"
-	"github.com/filebrowser/filebrowser/v2/share"
-	"github.com/filebrowser/filebrowser/v2/users"
+	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/share"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -156,6 +157,9 @@ var shareDeleteHandler = withPermShare(func(_ http.ResponseWriter, r *http.Reque
 })
 
 var sharePostHandler = withPermShare(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	if !d.Check(r.URL.Path) {
+		return http.StatusForbidden, nil
+	}
 	// Only allow sharing paths that currently exist. Otherwise a share could be
 	// created for a non-existent path and would silently start exposing
 	// whatever file later appears there.
@@ -170,6 +174,7 @@ var sharePostHandler = withPermShare(func(w http.ResponseWriter, r *http.Request
 	var s *share.Link
 	var body share.CreateBody
 	if r.Body != nil {
+		r.Body = http.MaxBytesReader(w, r.Body, maxAuthBodySize)
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			return http.StatusBadRequest, fmt.Errorf("failed to decode body: %w", err)
 		}
@@ -248,4 +253,53 @@ func getSharePasswordHash(body share.CreateBody) (data []byte, statuscode int, e
 	}
 
 	return hash, 0, nil
+}
+
+// revokeSharesForPath removes links invalidated by a filesystem mutation across
+// overlapping scopes, without revoking unrelated users' same-named paths.
+func revokeSharesForPath(d *data, name string) error {
+	if d.store.Share == nil {
+		return nil
+	}
+	target, err := files.ResolveMissingPath(d.user.FullPath(name))
+	if err != nil {
+		return err
+	}
+	links, err := d.store.Share.All()
+	if errors.Is(err, fberrors.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, link := range links {
+		owner, err := d.store.Users.Get(d.server.Root, d.server.FollowExternalSymlinks, link.UserID)
+		if errors.Is(err, fberrors.ErrNotExist) {
+			if err := d.store.Share.Delete(link.Hash); err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		shared, err := files.ResolveMissingPath(owner.FullPath(link.Path))
+		if err != nil {
+			return err
+		}
+		a, b := shared, target
+		if d.server.CaseInsensitiveFs {
+			a, b = strings.ToLower(a), strings.ToLower(b)
+		}
+		rel, err := filepath.Rel(b, a)
+		if err != nil {
+			continue
+		}
+		if rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)) {
+			if err := d.store.Share.Delete(link.Hash); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

@@ -17,7 +17,8 @@ import (
 // confinement — and adds a per-operation scope check on every call that would
 // dereference a symlink at the OS layer (open, stat, lstat, chmod, …).
 type ScopedFs struct {
-	base *afero.BasePathFs
+	base     *afero.BasePathFs
+	osBacked bool
 }
 
 var (
@@ -31,10 +32,14 @@ var (
 const maxSymlinkHops = 255
 
 func NewScopedFs(source afero.Fs, path string) *ScopedFs {
+	osBacked := source.Name() == "OsFs"
 	if s, ok := source.(*ScopedFs); ok {
+		osBacked = s.osBacked
 		source = s.base
+	} else if info, err := source.Stat(path); err == nil {
+		osBacked = info.Sys() != nil
 	}
-	return &ScopedFs{base: afero.NewBasePathFs(source, path).(*afero.BasePathFs)}
+	return &ScopedFs{base: afero.NewBasePathFs(source, path).(*afero.BasePathFs), osBacked: osBacked}
 }
 
 // NewFs builds a user filesystem rooted at path. When followExternal is true it
@@ -72,6 +77,10 @@ func (s *ScopedFs) RealPath(name string) (string, error) {
 
 // guard returns an error if name's on-disk target resolves outside the scope.
 func (s *ScopedFs) guard(name string) error {
+	if !s.osBacked {
+		_, err := s.base.RealPath(name)
+		return err
+	}
 	ok, err := s.within(name)
 	if err != nil {
 		return err
@@ -156,98 +165,211 @@ func (s *ScopedFs) within(p string) (bool, error) {
 	return resolved == root || strings.HasPrefix(resolved, prefix), nil
 }
 
-func (s *ScopedFs) Create(name string) (afero.File, error) {
+// confined opens a traversal-resistant root for the operation and converts
+// absolute in-scope symlinks to a root-relative target. os.Root enforces the
+// boundary during the syscall even if another process swaps a checked path.
+func (s *ScopedFs) confined(name string, followFinal bool) (*os.Root, string, error) {
 	if err := s.guard(name); err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return s.base.Create(name)
+	rootName, err := filepath.EvalSymlinks(afero.FullBaseFsPath(s.base, "/"))
+	if err != nil {
+		return nil, "", err
+	}
+	target := afero.FullBaseFsPath(s.base, name)
+	if target == afero.FullBaseFsPath(s.base, "/") {
+		target = rootName
+	} else if followFinal {
+		target, err = ResolveMissingPath(target)
+	} else {
+		parent, perr := ResolveMissingPath(filepath.Dir(target))
+		err = perr
+		target = filepath.Join(parent, filepath.Base(target))
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	info, err := os.Stat(rootName)
+	if err != nil {
+		return nil, "", err
+	}
+	if !info.IsDir() {
+		if target != rootName {
+			return nil, "", os.ErrPermission
+		}
+		rootName = filepath.Dir(rootName)
+	}
+	rel, err := filepath.Rel(rootName, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return nil, "", os.ErrPermission
+	}
+	root, err := os.OpenRoot(rootName)
+	return root, rel, err
+}
+
+func (s *ScopedFs) Create(name string) (afero.File, error) {
+	return s.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
 }
 
 func (s *ScopedFs) Mkdir(name string, perm os.FileMode) error {
-	if err := s.guard(name); err != nil {
+	if !s.osBacked {
+		return s.base.Mkdir(name, perm)
+	}
+	root, rel, err := s.confined(name, true)
+	if err != nil {
 		return err
 	}
-	return s.base.Mkdir(name, perm)
+	defer root.Close()
+	return root.Mkdir(rel, perm.Perm())
 }
 
-func (s *ScopedFs) MkdirAll(path string, perm os.FileMode) error {
-	if err := s.guard(path); err != nil {
+func (s *ScopedFs) MkdirAll(name string, perm os.FileMode) error {
+	if !s.osBacked {
+		return s.base.MkdirAll(name, perm)
+	}
+	root, rel, err := s.confined(name, true)
+	if err != nil {
 		return err
 	}
-	return s.base.MkdirAll(path, perm)
+	defer root.Close()
+	return root.MkdirAll(rel, perm.Perm())
 }
 
 func (s *ScopedFs) Open(name string) (afero.File, error) {
-	if err := s.guard(name); err != nil {
-		return nil, err
-	}
-	return s.base.Open(name)
+	return s.OpenFile(name, os.O_RDONLY, 0)
 }
 
 func (s *ScopedFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
-	if err := s.guard(name); err != nil {
+	if !s.osBacked {
+		return s.base.OpenFile(name, flag, perm)
+	}
+	root, rel, err := s.confined(name, true)
+	if err != nil {
 		return nil, err
 	}
-	return s.base.OpenFile(name, flag, perm)
+	defer root.Close()
+	f, err := root.OpenFile(rel, flag|nonBlockingOpenFlag, perm.Perm())
+	if err != nil {
+		return nil, err
+	}
+	info, err := f.Stat()
+	if err != nil || (!info.Mode().IsRegular() && !info.IsDir()) {
+		_ = f.Close()
+		if err != nil {
+			return nil, err
+		}
+		return nil, os.ErrPermission
+	}
+	return f, nil
 }
 
 func (s *ScopedFs) Remove(name string) error {
-	if err := s.guard(name); err != nil {
+	if !s.osBacked {
+		return s.base.Remove(name)
+	}
+	root, rel, err := s.confined(name, false)
+	if err != nil {
 		return err
 	}
-	return s.base.Remove(name)
+	defer root.Close()
+	return root.Remove(rel)
 }
 
-func (s *ScopedFs) RemoveAll(path string) error {
-	if err := s.guard(path); err != nil {
+func (s *ScopedFs) RemoveAll(name string) error {
+	if !s.osBacked {
+		return s.base.RemoveAll(name)
+	}
+	root, rel, err := s.confined(name, false)
+	if err != nil {
 		return err
 	}
-	return s.base.RemoveAll(path)
+	defer root.Close()
+	return root.RemoveAll(rel)
 }
 
 func (s *ScopedFs) Rename(oldname, newname string) error {
-	if err := s.guard(oldname); err != nil {
+	if !s.osBacked {
+		return s.base.Rename(oldname, newname)
+	}
+	root, oldrel, err := s.confined(oldname, false)
+	if err != nil {
 		return err
 	}
-	if err := s.guard(newname); err != nil {
+	defer root.Close()
+	other, newrel, err := s.confined(newname, false)
+	if err != nil {
 		return err
 	}
-	return s.base.Rename(oldname, newname)
+	defer other.Close()
+	return root.Rename(oldrel, newrel)
 }
 
 func (s *ScopedFs) Stat(name string) (os.FileInfo, error) {
-	if err := s.guard(name); err != nil {
+	if !s.osBacked {
+		return s.base.Stat(name)
+	}
+	root, rel, err := s.confined(name, true)
+	if err != nil {
 		return nil, err
 	}
-	return s.base.Stat(name)
+	defer root.Close()
+	return root.Stat(rel)
 }
 
 func (s *ScopedFs) Name() string { return "ScopedFs" }
 
 func (s *ScopedFs) Chmod(name string, mode os.FileMode) error {
-	if err := s.guard(name); err != nil {
+	if !s.osBacked {
+		return s.base.Chmod(name, mode)
+	}
+	f, err := s.Open(name)
+	if err != nil {
 		return err
 	}
-	return s.base.Chmod(name, mode)
+	defer f.Close()
+	return f.(*os.File).Chmod(mode)
 }
 
 func (s *ScopedFs) Chown(name string, uid, gid int) error {
-	if err := s.guard(name); err != nil {
+	if !s.osBacked {
+		return s.base.Chown(name, uid, gid)
+	}
+	f, err := s.Open(name)
+	if err != nil {
 		return err
 	}
-	return s.base.Chown(name, uid, gid)
+	defer f.Close()
+	return f.(*os.File).Chown(uid, gid)
 }
 
 func (s *ScopedFs) Chtimes(name string, atime, mtime time.Time) error {
-	if err := s.guard(name); err != nil {
+	if !s.osBacked {
+		return s.base.Chtimes(name, atime, mtime)
+	}
+	root, rel, err := s.confined(name, true)
+	if err != nil {
 		return err
 	}
-	return s.base.Chtimes(name, atime, mtime)
+	defer root.Close()
+	return root.Chtimes(rel, atime, mtime)
 }
 
 func (s *ScopedFs) LstatIfPossible(name string) (os.FileInfo, bool, error) {
-	if err := s.guard(name); err != nil {
+	if !s.osBacked {
+		return s.base.LstatIfPossible(name)
+	}
+	// The root itself can be a file for a single-file public share.
+	if name == "" || name == "/" || name == "." {
+		if err := s.guard(name); err != nil {
+			return nil, false, err
+		}
+		return s.base.LstatIfPossible(name)
+	}
+	root, rel, err := s.confined(name, false)
+	if err != nil {
 		return nil, false, err
 	}
-	return s.base.LstatIfPossible(name)
+	defer root.Close()
+	info, err := root.Lstat(rel)
+	return info, true, err
 }

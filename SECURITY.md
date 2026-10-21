@@ -1,30 +1,13 @@
-# Security Policy
+# Security policy
 
-## Supported Versions
+The development branch of filebrowser-ng receives security fixes. No filebrowser-ng release has been tagged yet; upstream File Browser releases and images are not supported by this fork.
 
-No version receives security fixes. The last planned release has already shipped and no further changes will be merged.
+For a new vulnerability, use **Report a vulnerability** in this repository's Security tab (private vulnerability reporting is enabled for this fork). If it is unavailable, open an issue requesting a private reporting channel without including an exploit or sensitive data. Do not send reports to the archived upstream repository.
 
-| Version | Supported |
-| ------- | --------- |
-| 2.x     | ❌        |
-| < 2.0   | ❌        |
+Include the fork commit/version, configuration, affected endpoint, a minimal text reproduction, impact, and suggested fix. Check the [advisory inventory and audit](docs/security/audit-2026-10-21.md) first.
 
-## Before Reporting
+We aim to triage reports and ship regression tests with fixes. This is a volunteer-maintained fork; there is no guaranteed response SLA.
 
-This project is being wound down. To avoid duplicates, first check the [existing advisories](https://github.com/filebrowser/filebrowser/security/advisories) and open issues, and confirm:
+## Deployment boundary
 
-- **It concerns this project, not a fork.** Reports about code, features, or endpoints that don't exist here belong to the relevant fork.
-- **It isn't an already-known class** that remains unaddressed. Those are listed under [Security](README.md#security) in the README; reports covering them are likely to be closed as duplicates.
-
-## Reporting a Vulnerability
-
-Until 2026-09-01, report privately via the [Security](https://github.com/filebrowser/filebrowser/security) page. After that date this repository is read-only and reports can no longer be submitted.
-
-Please include, where possible:
-
-- The commit the issue was found at
-- A plaintext proof of concept (no binaries)
-- Steps to reproduce
-- Recommended remediation, if any
-
-No fix will ship for any report: the last planned release has already shipped and no further changes will be merged. Reports may still be published as advisories so that people running File Browser can assess their exposure.
+Run unprivileged, behind TLS, with the database outside the served tree. Keep the runtime, Go toolchain, and container base images current. Proxy authentication trusts only explicitly configured TCP peer CIDRs and still requires the proxy to strip client-supplied identity headers. Do not enable external symlink following for untrusted trees. Use one writer process per storage tree. See [migration](docs/migration.md) for compatibility changes and the audit for unresolved limits.

@@ -1,15 +1,18 @@
 package fbhttp
 
 import (
+	"errors"
 	"io/fs"
+
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/auth"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/afero"
 
-	"github.com/filebrowser/filebrowser/v2/files"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/storage"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage"
 )
 
 type modifyRequest struct {
@@ -26,6 +29,14 @@ func NewHandler(
 	server *settings.Server,
 	assetsFs fs.FS,
 ) (http.Handler, error) {
+	server.EnableExec = false
+	set, err := store.Settings.Get()
+	if err != nil {
+		return nil, err
+	}
+	if set.AuthMethod == auth.MethodHookAuth {
+		return nil, errors.New("hook authentication was removed in filebrowser-ng; configure JSON or trusted proxy authentication")
+	}
 	server.Clean()
 	server.CaseInsensitiveFs = files.CaseInsensitive(afero.NewOsFs(), server.Root)
 
@@ -49,9 +60,10 @@ func NewHandler(
 	api := r.PathPrefix("/api").Subrouter()
 
 	tokenExpirationTime := server.GetTokenExpirationTime(DefaultTokenExpirationTime)
-	api.Handle("/login", monkey(loginHandler(tokenExpirationTime), ""))
-	api.Handle("/signup", monkey(signupHandler, ""))
-	api.Handle("/renew", monkey(renewHandler(tokenExpirationTime), ""))
+	api.Handle("/login", monkey(limitAuthentication(loginHandler(tokenExpirationTime)), "")).Methods("POST")
+	api.Handle("/signup", monkey(limitAuthentication(signupHandler), "")).Methods("POST")
+	api.Handle("/logout", monkey(logoutHandler, "")).Methods("POST")
+	api.Handle("/renew", monkey(renewHandler(tokenExpirationTime), "")).Methods("POST")
 
 	users := api.PathPrefix("/users").Subrouter()
 	users.Handle("", monkey(usersGetHandler, "")).Methods("GET")

@@ -11,10 +11,10 @@ import (
 	"github.com/asdine/storm/v3"
 	"github.com/golang-jwt/jwt/v5"
 
-	fbAuth "github.com/filebrowser/filebrowser/v2/auth"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/storage/bolt"
-	"github.com/filebrowser/filebrowser/v2/users"
+	fbAuth "github.com/dawidpiotrowski/filebrowser-ng/v2/auth"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage/bolt"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 // Regression for the username-normalization home-directory collision
@@ -93,7 +93,7 @@ func TestExpiredTokenNeedsProxyAssertion(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("failed to save settings: %v", err)
 	}
-	if err := st.Auth.Save(&fbAuth.ProxyAuth{Header: proxyHeader}); err != nil {
+	if err := st.Auth.Save(&fbAuth.ProxyAuth{Header: proxyHeader, TrustedProxies: []string{"192.0.2.0/24"}}); err != nil {
 		t.Fatalf("failed to save auther: %v", err)
 	}
 
@@ -117,6 +117,7 @@ func TestExpiredTokenNeedsProxyAssertion(t *testing.T) {
 	get := func(token, proxyUser string) *httptest.ResponseRecorder {
 		req, _ := http.NewRequest(http.MethodGet, "/", http.NoBody)
 		req.Header.Set("X-Auth", token)
+		req.RemoteAddr = "192.0.2.1:1234"
 		if proxyUser != "" {
 			req.Header.Set(proxyHeader, proxyUser)
 		}
@@ -137,15 +138,15 @@ func TestExpiredTokenNeedsProxyAssertion(t *testing.T) {
 		}
 	})
 
-	t.Run("expired token the proxy still asserts is accepted", func(t *testing.T) {
-		if rec := get(expiredToken, "u"); rec.Code != http.StatusOK {
-			t.Errorf("expired token asserted by the proxy = %d, body=%q; want 200", rec.Code, rec.Body.String())
+	t.Run("expired token asserted by proxy is rejected", func(t *testing.T) {
+		if rec := get(expiredToken, "u"); rec.Code != http.StatusUnauthorized {
+			t.Errorf("expired token asserted by the proxy = %d, body=%q; want 401", rec.Code, rec.Body.String())
 		}
 	})
 
-	t.Run("valid token needs no assertion", func(t *testing.T) {
-		if rec := get(signToken(t, perm, key), ""); rec.Code != http.StatusOK {
-			t.Errorf("valid token = %d, body=%q; want 200", rec.Code, rec.Body.String())
+	t.Run("valid token needs proxy assertion", func(t *testing.T) {
+		if rec := get(signToken(t, st, perm, key), "u"); rec.Code != http.StatusOK {
+			t.Errorf("valid token = %d, body=%q; want 401", rec.Code, rec.Body.String())
 		}
 	})
 }

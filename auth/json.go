@@ -6,9 +6,10 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 // MethodJSONAuth is used to identify json auth.
@@ -93,7 +94,7 @@ func (r *ReCaptcha) Ok(response string) (bool, error) {
 	body.Set("secret", r.Secret)
 	body.Add("response", response)
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 
 	resp, err := client.Post(
 		r.Host+reCaptchaAPI,

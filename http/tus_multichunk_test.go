@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/storage"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 // newTusTestServer mounts the TUS handlers behind a real HTTP server, under the
@@ -74,7 +74,7 @@ func newTusTestFixture(t *testing.T) *tusTestFixture {
 	return &tusTestFixture{
 		srv:    srv,
 		client: srv.Client(),
-		token:  signToken(t, perm, key),
+		token:  signToken(t, st, perm, key),
 		scope:  userScope,
 	}
 }

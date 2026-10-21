@@ -1,8 +1,9 @@
 package fbhttp
 
 import (
-	"context"
 	"fmt"
+	"hash/fnv"
+	"sync"
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
@@ -14,10 +15,11 @@ const uploadCacheTTL = 3 * time.Minute
 // Allows for different backends (e.g. in-memory or redis)
 // to support both single instance and multi replica deployments.
 type UploadCache interface {
-	// Register stores an upload with its expected file size. remove is called if
-	// the upload expires before completion, to delete the partial file; it must
-	// route through the uploading user's scoped filesystem so that eviction
-	// cannot follow a symlink out of the user's scope.
+	// Lock serializes mutations of one upload across stat/check/write/complete.
+	Lock(filePath string) (unlock func(), err error)
+
+	// Register stores an upload with its expected file size. The legacy removal
+	// callback is ignored: expiry must not delete a subsequently replaced file.
 	Register(filePath string, fileSize int64, remove func() error)
 
 	// Complete removes an upload from the cache
@@ -46,27 +48,14 @@ type memoryUploadCache struct {
 
 func newMemoryUploadCache() *memoryUploadCache {
 	cache := ttlcache.New[string, memoryUploadEntry]()
-	cache.OnEviction(func(_ context.Context, reason ttlcache.EvictionReason, item *ttlcache.Item[string, memoryUploadEntry]) {
-		if reason == ttlcache.EvictionReasonExpired {
-			fmt.Printf("deleting incomplete upload file: \"%s\"\n", item.Key())
-			// Delete through the scoped removal callback rather than a raw
-			// os.Remove on the cached path, so an ancestor directory swapped for
-			// a symlink during the TTL window cannot redirect the delete outside
-			// the user's scope.
-			if remove := item.Value().remove; remove != nil {
-				if err := remove(); err != nil {
-					fmt.Printf("failed to delete incomplete upload file %q: %v\n", item.Key(), err)
-				}
-			}
-		}
-	})
+
 	go cache.Start()
 
 	return &memoryUploadCache{cache: cache}
 }
 
-func (c *memoryUploadCache) Register(filePath string, fileSize int64, remove func() error) {
-	c.cache.Set(filePath, memoryUploadEntry{size: fileSize, remove: remove}, uploadCacheTTL)
+func (c *memoryUploadCache) Register(filePath string, fileSize int64, _ func() error) {
+	c.cache.Set(filePath, memoryUploadEntry{size: fileSize}, uploadCacheTTL)
 }
 
 func (c *memoryUploadCache) Complete(filePath string) {
@@ -89,13 +78,30 @@ func (c *memoryUploadCache) Close() {
 	c.cache.Stop()
 }
 
-// NewUploadCache creates a new upload cache.
-// If redisURL is empty, an in-memory cache will be used (suitable for single instance deployments).
-// Otherwise, Redis will be used for the cache (suitable for multi-instance deployments).
-// The redisURL can include credentials, e.g. redis://user:pass@host:port
+// uploadLocks uses bounded striped locks; colliding paths can safely retry.
+type uploadLocks struct{ stripes [256]sync.Mutex }
+
+var cacheUploadLocks uploadLocks
+
+func (l *uploadLocks) lock(path string) (func(), error) {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(path))
+	m := &l.stripes[h.Sum32()%uint32(len(l.stripes))]
+	if !m.TryLock() {
+		return nil, fmt.Errorf("upload is busy")
+	}
+	return m.Unlock, nil
+}
+
+func (c *memoryUploadCache) Lock(path string) (func(), error) {
+	return cacheUploadLocks.lock(path)
+}
+
+// NewUploadCache creates a cache for a single writer process. Redis-backed
+// multi-writer uploads are rejected until a fencing protocol can protect writes.
 func NewUploadCache(redisURL string) (UploadCache, error) {
 	if redisURL != "" {
-		return newRedisUploadCache(redisURL)
+		return nil, fmt.Errorf("Redis uploads were disabled in filebrowser-ng: concurrent writers require filesystem fencing; run one writer process without --redis")
 	}
 	return newMemoryUploadCache(), nil
 }

@@ -35,7 +35,7 @@ export async function fetch(url: string, password: string = "") {
 export function download(
   format: DownloadFormat,
   hash: string,
-  token: string,
+  _token: string,
   ...files: string[]
 ) {
   let url = `${baseURL}/api/public/dl/${hash}`;
@@ -58,17 +58,12 @@ export function download(
     url += `algo=${format}&`;
   }
 
-  if (token) {
-    url += `token=${token}&`;
-  }
-
   window.open(url);
 }
 
 export function getDownloadURL(res: Resource, inline = false) {
   const params = {
     ...(inline && { inline: "true" }),
-    ...(res.token && { token: res.token }),
   };
 
   return createURL("api/public/dl/" + res.hash + res.path, params);

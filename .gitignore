@@ -5,6 +5,8 @@ rice-box.go
 .idea/
 /filebrowser
 /filebrowser.exe
+/filebrowser-ng
+/filebrowser-ng.exe
 /dist
 .venv
 

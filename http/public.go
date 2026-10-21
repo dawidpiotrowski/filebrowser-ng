@@ -1,16 +1,20 @@
 package fbhttp
 
 import (
-	"crypto/subtle"
+	"crypto/sha256"
+	"encoding/hex"
+	"time"
+
 	"errors"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
 
-	"github.com/filebrowser/filebrowser/v2/files"
-	"github.com/filebrowser/filebrowser/v2/share"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/share"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -22,7 +26,7 @@ var withHashFile = func(fn handleFunc) handleFunc {
 			return errToStatus(err), err
 		}
 
-		status, err := authenticateShareRequest(r, link)
+		status, err := authenticateShareRequest(w, r, d, link)
 		if status != 0 || err != nil {
 			return status, err
 		}
@@ -46,7 +50,6 @@ var withHashFile = func(fn handleFunc) handleFunc {
 			ReadHeader: d.server.TypeDetectionByHeader,
 			CalcImgRes: d.server.TypeDetectionByHeader,
 			Checker:    d,
-			Token:      link.Token,
 		})
 		if err != nil {
 			return errToStatus(err), err
@@ -82,7 +85,6 @@ var withHashFile = func(fn handleFunc) handleFunc {
 			Modify:  d.user.Perm.Modify,
 			Expand:  true,
 			Checker: d,
-			Token:   link.Token,
 		})
 		if err != nil {
 			return errToStatus(err), err
@@ -137,30 +139,66 @@ var publicDlHandler = withHashFile(func(w http.ResponseWriter, r *http.Request, 
 	return rawDirHandler(w, r, d, file)
 })
 
-func authenticateShareRequest(r *http.Request, l *share.Link) (int, error) {
+const shareGrantLifetime = 15 * time.Minute
+
+func shareCookieName(hash string) string {
+	sum := sha256.Sum256([]byte(hash))
+	return "fb_share_" + hex.EncodeToString(sum[:8])
+}
+
+func shareCredential(l *share.Link) string {
+	sum := sha256.Sum256([]byte(l.PasswordHash + "\x00" + l.Token))
+	return hex.EncodeToString(sum[:])
+}
+
+func authenticateShareRequest(w http.ResponseWriter, r *http.Request, d *data, l *share.Link) (int, error) {
 	if l.PasswordHash == "" {
 		return 0, nil
 	}
-
-	if subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("token")), []byte(l.Token)) == 1 {
-		return 0, nil
+	// Legacy permanent query-string bypass tokens are deliberately ignored.
+	if cookie, err := r.Cookie(shareCookieName(l.Hash)); err == nil {
+		claims := &jwt.RegisteredClaims{}
+		token, err := jwt.ParseWithClaims(cookie.Value, claims, func(_ *jwt.Token) (interface{}, error) { return d.settings.Key, nil },
+			jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired(),
+			jwt.WithIssuer("filebrowser-ng/share"), jwt.WithAudience(l.Hash), jwt.WithSubject(shareCredential(l)))
+		if err == nil && token.Valid {
+			return 0, nil
+		}
 	}
-
-	password := r.Header.Get("X-SHARE-PASSWORD")
-	password, err := url.QueryUnescape(password)
+	password, err := url.QueryUnescape(r.Header.Get("X-SHARE-PASSWORD"))
 	if err != nil {
-		return 0, err
+		return http.StatusBadRequest, err
 	}
 	if password == "" {
 		return http.StatusUnauthorized, nil
+	}
+	if !allowAuthentication(r.RemoteAddr, time.Now()) {
+		return http.StatusTooManyRequests, nil
+	}
+	select {
+	case passwordWork <- struct{}{}:
+		defer func() { <-passwordWork }()
+	default:
+		return http.StatusTooManyRequests, nil
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(l.PasswordHash), []byte(password)); err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
 			return http.StatusUnauthorized, nil
 		}
-		return 0, err
+		return http.StatusUnauthorized, err
 	}
-
+	expires := time.Now().Add(shareGrantLifetime)
+	if l.Expire > 0 && time.Unix(l.Expire, 0).Before(expires) {
+		expires = time.Unix(l.Expire, 0)
+	}
+	claims := &jwt.RegisteredClaims{Issuer: "filebrowser-ng/share", Subject: shareCredential(l), Audience: jwt.ClaimStrings{l.Hash}, ExpiresAt: jwt.NewNumericDate(expires)}
+	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(d.settings.Key)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+	http.SetCookie(w, &http.Cookie{Name: shareCookieName(l.Hash), Value: signed,
+		Path: strings.TrimRight(d.server.BaseURL, "/") + "/api/public/", Expires: expires,
+		HttpOnly: true, Secure: secureRequest(r), SameSite: http.SameSiteStrictMode})
 	return 0, nil
 }
 

@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/filebrowser/filebrowser/v2/diskcache"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/storage"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/diskcache"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 // Regression for GHSA-77x8-73f4-5485: copy, rename and delete authorize only
@@ -47,7 +47,7 @@ func TestRecursiveOperationsEnforceDescendantRules(t *testing.T) {
 	do := func(t *testing.T, st *storage.Storage, handler handleFunc, method, target string) *httptest.ResponseRecorder {
 		t.Helper()
 		req, _ := http.NewRequest(method, target, http.NoBody)
-		req.Header.Set("X-Auth", signToken(t, perm, key))
+		req.Header.Set("X-Auth", signToken(t, st, perm, key))
 		rec := httptest.NewRecorder()
 		handle(handler, "", st, &settings.Server{}).ServeHTTP(rec, req)
 		return rec

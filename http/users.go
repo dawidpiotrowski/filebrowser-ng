@@ -13,9 +13,9 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/filebrowser/filebrowser/v2/auth"
-	fberrors "github.com/filebrowser/filebrowser/v2/errors"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/auth"
+	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 var (
@@ -36,11 +36,12 @@ func getUserID(r *http.Request) (uint, error) {
 	return uint(i), err
 }
 
-func getUser(_ http.ResponseWriter, r *http.Request) (*modifyUserRequest, error) {
+func getUser(w http.ResponseWriter, r *http.Request) (*modifyUserRequest, error) {
 	if r.Body == nil {
 		return nil, fberrors.ErrEmptyRequest
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBodySize)
 	req := &modifyUserRequest{}
 	err := json.NewDecoder(r.Body).Decode(req)
 	if err != nil {
@@ -104,11 +105,12 @@ var userGetHandler = withSelfOrAdmin(func(w http.ResponseWriter, r *http.Request
 	return renderJSON(w, r, u)
 })
 
-var userDeleteHandler = withSelfOrAdmin(func(_ http.ResponseWriter, r *http.Request, d *data) (int, error) {
+var userDeleteHandler = withSelfOrAdmin(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
 	if r.Body == nil {
 		return http.StatusBadRequest, fberrors.ErrEmptyRequest
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxAuthBodySize)
 	var body struct {
 		CurrentPassword string `json:"current_password"`
 	}

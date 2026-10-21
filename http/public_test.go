@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/asdine/storm/v3"
-	"github.com/filebrowser/filebrowser/v2/files"
-	"github.com/filebrowser/filebrowser/v2/rules"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/share"
-	"github.com/filebrowser/filebrowser/v2/storage/bolt"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/rules"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/share"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage/bolt"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 	"github.com/spf13/afero"
 )
 
@@ -42,12 +42,12 @@ func TestPublicShareHandlerAuthentication(t *testing.T) {
 			downloadPerm:       true,
 			expectedStatusCode: 401,
 		},
-		"Private share, authentication via token": {
+		"Private share, legacy permanent token rejected": {
 			share:              &share.Link{Hash: "h", UserID: 1, PasswordHash: passwordBcrypt, Token: "123"},
 			req:                newHTTPRequest(t, func(r *http.Request) { r.URL.RawQuery = "token=123" }),
 			sharePerm:          true,
 			downloadPerm:       true,
-			expectedStatusCode: 200,
+			expectedStatusCode: 401,
 		},
 		"Private share, authentication via invalid token, 401": {
 			share:              &share.Link{Hash: "h", UserID: 1, PasswordHash: passwordBcrypt, Token: "123"},

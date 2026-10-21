@@ -7,17 +7,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/asdine/storm/v3"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/afero"
 
-	"github.com/filebrowser/filebrowser/v2/diskcache"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/storage"
-	"github.com/filebrowser/filebrowser/v2/storage/bolt"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/diskcache"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage/bolt"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 func TestResourceCopyDoesNotDereferenceEscapingSymlink(t *testing.T) {
@@ -70,7 +68,7 @@ func TestResourceCopyDoesNotDereferenceEscapingSymlink(t *testing.T) {
 		fs:    afero.NewBasePathFs(afero.NewOsFs(), userScope),
 	}
 
-	signed := signToken(t, perm, key)
+	signed := signToken(t, st, perm, key)
 
 	t.Run("direct raw read is forbidden", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "/srcdir/link.txt", http.NoBody)
@@ -102,20 +100,9 @@ func TestResourceCopyDoesNotDereferenceEscapingSymlink(t *testing.T) {
 	})
 }
 
-func signToken(t *testing.T, perm users.Permissions, key []byte) string {
+func signToken(t *testing.T, st *storage.Storage, _ users.Permissions, key []byte) string {
 	t.Helper()
-	claims := &authToken{
-		User: userInfo{ID: 1, Username: "u", Perm: perm},
-		RegisteredClaims: jwt.RegisteredClaims{
-			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-time.Minute)),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
-		},
-	}
-	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(key)
-	if err != nil {
-		t.Fatalf("failed to sign token: %v", err)
-	}
-	return signed
+	return signShareTestToken(t, st, 1, "u", users.Permissions{}, key)
 }
 
 // scopedUserStorage returns a storage whose single user (ID 1) is scoped to
@@ -169,7 +156,7 @@ func TestResourcePostRejectsDanglingSymlinkWriteEscape(t *testing.T) {
 	key := []byte("test-signing-key")
 	perm := users.Permissions{Create: true, Modify: true}
 	st := scopedUserStorage(t, userScope, perm, key)
-	signed := signToken(t, perm, key)
+	signed := signToken(t, st, perm, key)
 
 	req, _ := http.NewRequest(http.MethodPost, "/evil?override=true", strings.NewReader("http-outside"))
 	req.Header.Set("X-Auth", signed)
@@ -211,7 +198,7 @@ func TestResourcePostCleanupDoesNotDeleteThroughSymlink(t *testing.T) {
 	// Create-only: Perm.Delete is deliberately false — the bug must not need it.
 	perm := users.Permissions{Create: true}
 	st := scopedUserStorage(t, userScope, perm, key)
-	signed := signToken(t, perm, key)
+	signed := signToken(t, st, perm, key)
 
 	req, _ := http.NewRequest(http.MethodPost, "/link/victim.txt", strings.NewReader("x"))
 	req.Header.Set("X-Auth", signed)
@@ -223,7 +210,7 @@ func TestResourcePostCleanupDoesNotDeleteThroughSymlink(t *testing.T) {
 	}
 }
 
-func TestResourcePostRunsUploadHooksForDirectories(t *testing.T) {
+func TestResourcePostDoesNotRunLegacyUploadHooksForDirectories(t *testing.T) {
 	root := t.TempDir()
 	userScope := filepath.Join(root, "user")
 	if err := os.MkdirAll(userScope, 0o755); err != nil {
@@ -243,15 +230,15 @@ func TestResourcePostRunsUploadHooksForDirectories(t *testing.T) {
 	}
 
 	req, _ := http.NewRequest(http.MethodPost, "/created/", http.NoBody)
-	req.Header.Set("X-Auth", signToken(t, perm, key))
+	req.Header.Set("X-Auth", signToken(t, st, perm, key))
 	rec := httptest.NewRecorder()
 	handle(resourcePostHandler(diskcache.NewNoOp()), "", st, &settings.Server{EnableExec: true}).ServeHTTP(rec, req)
 
 	// A missing after_upload command makes the request fail only if the hook ran.
 	// It avoids a platform-specific helper executable while still exercising the
 	// same path the web UI uses for directory uploads.
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("expected directory upload hook failure to return 500, got %d body=%q", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected directory upload without legacy hooks to return 200, got %d body=%q", rec.Code, rec.Body.String())
 	}
 	if _, err := os.Stat(filepath.Join(userScope, "created")); err != nil {
 		t.Fatalf("expected directory to be created before its after hook, got %v", err)

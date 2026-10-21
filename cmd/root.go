@@ -23,14 +23,14 @@ import (
 	"github.com/spf13/viper"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/filebrowser/filebrowser/v2/auth"
-	"github.com/filebrowser/filebrowser/v2/diskcache"
-	"github.com/filebrowser/filebrowser/v2/frontend"
-	fbhttp "github.com/filebrowser/filebrowser/v2/http"
-	"github.com/filebrowser/filebrowser/v2/img"
-	"github.com/filebrowser/filebrowser/v2/settings"
-	"github.com/filebrowser/filebrowser/v2/storage"
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/auth"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/diskcache"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/frontend"
+	fbhttp "github.com/dawidpiotrowski/filebrowser-ng/v2/http"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/img"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/storage"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 var (
@@ -76,7 +76,7 @@ func init() {
 
 	cobra.MousetrapHelpText = ""
 
-	rootCmd.SetVersionTemplate("File Browser version {{printf \"%s\" .Version}}\n")
+	rootCmd.SetVersionTemplate("filebrowser-ng version {{printf \"%s\" .Version}}\n")
 
 	// Flags available across the whole program
 	persistent := rootCmd.PersistentFlags()
@@ -116,7 +116,7 @@ func addServerFlags(flags *pflag.FlagSet) {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "filebrowser",
+	Use:   "filebrowser-ng",
 	Short: "A stylish web-based file browser",
 	Long: `File Browser CLI lets you create the database to use with File Browser,
 manage your users and all the configurations without accessing the
@@ -192,10 +192,7 @@ user created with the credentials from options "username" and "password".`,
 		}
 		setupLog(server.Log)
 
-		log.Println("NOTICE: File Browser is being wound down.")
-		log.Println("NOTICE: The project is archived on 2026-09-01, after which there will be no")
-		log.Println("NOTICE: further releases and no security fixes. Known unfixed issues are at")
-		log.Println("NOTICE: https://github.com/filebrowser/filebrowser/security/advisories")
+		log.Println("filebrowser-ng: maintained fork of File Browser")
 
 		root, err := filepath.Abs(server.Root)
 		if err != nil {
@@ -374,10 +371,7 @@ func getServerSettings(v *viper.Viper, st *storage.Storage) (*settings.Server, e
 	}
 
 	if server.EnableExec {
-		log.Println("WARNING: Command Runner feature enabled!")
-		log.Println("WARNING: This feature has known security vulnerabilities and should not")
-		log.Println("WARNING: you fully understand the risks involved. For more information")
-		log.Println("WARNING: read https://github.com/filebrowser/filebrowser/issues/5199")
+		return nil, errors.New("command execution and hooks were removed in filebrowser-ng; remove --disable-exec=false from your configuration")
 	}
 
 	if server.FollowExternalSymlinks {

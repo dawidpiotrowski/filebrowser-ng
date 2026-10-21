@@ -1,0 +1,22 @@
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -144,6 +144,9 @@
+ 
+     if (value === CHAR_LEFT_PARENTHESES) {
+       block = push({ type: 'paren', nodes: [] });
++      if (stack.length >= 128) {
++        throw new RangeError('Brace pattern nesting exceeds 128 levels');
++      }
+       stack.push(block);
+       push({ type: 'text', value });
+       continue;
+@@ -210,6 +213,9 @@
+       };
+ 
+       block = push(brace);
++      if (stack.length >= 128) {
++        throw new RangeError('Brace pattern nesting exceeds 128 levels');
++      }
+       stack.push(block);
+       push({ type: 'open', value });
+       continue;

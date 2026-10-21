@@ -4,14 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"path"
 	"regexp"
 	"strings"
 
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
 	"github.com/spf13/afero"
 
-	"github.com/filebrowser/filebrowser/v2/users"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
 var (
@@ -34,8 +34,12 @@ func (s *Settings) MakeUserDir(username, userScope, serverRoot string) (string, 
 
 	userScope = path.Join("/", userScope)
 
-	fs := afero.NewBasePathFs(afero.NewOsFs(), serverRoot)
-	if err := fs.MkdirAll(userScope, os.ModePerm); err != nil {
+	fs := files.NewScopedFs(afero.NewOsFs(), serverRoot)
+	mode := s.DirMode
+	if mode == 0 {
+		mode = DefaultDirMode
+	}
+	if err := fs.MkdirAll(userScope, mode); err != nil {
 		return "", fmt.Errorf("failed to create user home dir: [%s]: %w", userScope, err)
 	}
 	return userScope, nil

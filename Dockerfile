@@ -1,46 +1,31 @@
-## Multistage build: First stage fetches dependencies
-FROM alpine:3.23 AS fetcher
+FROM node:24-alpine AS frontend
+WORKDIR /src/frontend
+RUN npm install --global pnpm@10.33.4
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+COPY frontend/patches ./patches
+RUN pnpm install --frozen-lockfile
+COPY frontend/ ./
+RUN pnpm run build
 
-# install and copy ca-certificates, mailcap, and tini-static; download JSON.sh
-RUN apk update && \
-    apk --no-cache add ca-certificates mailcap tini-static && \
-    wget -O /JSON.sh https://raw.githubusercontent.com/dominictarr/JSON.sh/0d5e5c77365f63809bf6e77ef44a1f34b0e05840/JSON.sh
+FROM golang:1.27.3-alpine AS backend
+WORKDIR /src
+RUN apk add --no-cache ca-certificates
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=frontend /src/frontend/dist ./frontend/dist
+RUN CGO_ENABLED=0 go test ./...
+RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/filebrowser-ng . && \
+    mkdir -p /runtime/srv /runtime/database && \
+    chown -R 65532:65532 /runtime
 
-## Second stage: Use lightweight BusyBox image for final runtime environment
-FROM busybox:1.37.0-musl
-
-# Define non-root user UID and GID
-ENV UID=1000
-ENV GID=1000
-
-# Create user group and user
-RUN addgroup -g $GID user && \
-    adduser -D -u $UID -G user user
-
-# Copy binary, scripts, and configurations into image with proper ownership
-COPY --chown=user:user filebrowser /bin/filebrowser
-COPY --chown=user:user docker/common/ /
-COPY --chown=user:user docker/alpine/ /
-COPY --chown=user:user --from=fetcher /sbin/tini-static /bin/tini
-COPY --from=fetcher /JSON.sh /JSON.sh
-COPY --from=fetcher /etc/ca-certificates.conf /etc/ca-certificates.conf
-COPY --from=fetcher /etc/ca-certificates /etc/ca-certificates
-COPY --from=fetcher /etc/mime.types /etc/mime.types
-COPY --from=fetcher /etc/ssl /etc/ssl
-
-# Create data directories, set ownership, and ensure healthcheck script is executable
-RUN mkdir -p /config /database /srv && \
-    chown -R user:user /config /database /srv \
-    && chmod +x /healthcheck.sh
-
-# Define healthcheck script
-HEALTHCHECK --start-period=2s --interval=5s --timeout=3s CMD /healthcheck.sh
-
-# Set the user, volumes and exposed ports
-USER user
-
-VOLUME /srv /config /database
-
-EXPOSE 80
-
-ENTRYPOINT [ "tini", "--", "/init.sh" ]
+FROM scratch
+COPY --from=backend /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=backend /out/filebrowser-ng /filebrowser-ng
+COPY --from=backend --chown=65532:65532 /runtime/ /
+USER 65532:65532
+WORKDIR /srv
+EXPOSE 8080
+VOLUME ["/srv", "/database"]
+ENTRYPOINT ["/filebrowser-ng"]
+CMD ["--root=/srv", "--database=/database/filebrowser.db", "--address=0.0.0.0", "--port=8080"]
