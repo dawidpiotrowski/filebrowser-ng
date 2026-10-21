@@ -3,6 +3,7 @@ package fileutils
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"syscall"
 	"testing"
 
@@ -27,7 +28,7 @@ func (f failedRenameFs) Open(name string) (afero.File, error) {
 func TestFailedMovePreservesExistingDestination(t *testing.T) {
 	for _, renameErr := range []error{os.ErrPermission, syscall.EXDEV} {
 		t.Run(renameErr.Error(), func(t *testing.T) {
-			mem := afero.NewMemMapFs()
+			mem := afero.NewBasePathFs(afero.NewMemMapFs(), string(filepath.Separator))
 			for name, content := range map[string]string{"/source": "source", "/destination": "valuable-existing-file"} {
 				if err := afero.WriteFile(mem, name, []byte(content), 0o600); err != nil {
 					t.Fatal(err)
@@ -46,7 +47,7 @@ func TestFailedMovePreservesExistingDestination(t *testing.T) {
 }
 
 func TestMoveDoesNotFallbackOnPermissionFailure(t *testing.T) {
-	mem := afero.NewMemMapFs()
+	mem := afero.NewBasePathFs(afero.NewMemMapFs(), string(filepath.Separator))
 	if err := afero.WriteFile(mem, "/source", []byte("source"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +61,10 @@ func TestMoveDoesNotFallbackOnPermissionFailure(t *testing.T) {
 }
 
 func TestCrossDeviceMoveStillWorks(t *testing.T) {
-	mem := afero.NewMemMapFs()
+	// Normalize virtual paths through the root adapter, as production user
+	// filesystems do. MemMapFs.Chmod otherwise treats / and \\ differently on
+	// Windows even when OpenFile accepted the forward-slash spelling.
+	mem := afero.NewBasePathFs(afero.NewMemMapFs(), string(filepath.Separator))
 	if err := afero.WriteFile(mem, "/source", []byte("source"), 0o600); err != nil {
 		t.Fatal(err)
 	}
