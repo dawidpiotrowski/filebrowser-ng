@@ -48,6 +48,9 @@ func (d *data) CheckRules(path string) bool {
 }
 
 func (d *data) checkPath(path string, hidden bool) bool {
+	if checker, ok := d.user.Fs.(interface{ CheckPath(string) error }); ok && checker.CheckPath(path) != nil {
+		return false
+	}
 	if !d.checkRulePath(d.rulePath(path), hidden) {
 		return false
 	}
@@ -64,6 +67,9 @@ func (d *data) checkPath(path string, hidden bool) bool {
 }
 
 func (d *data) checkRulePath(path string, hidden bool) bool {
+	if files.IsReservedPath(path) {
+		return false
+	}
 	if hidden && d.user.HideDotfiles && rules.MatchHidden(path) {
 		return false
 	}
@@ -134,6 +140,9 @@ func handle(fn handleFunc, prefix string, store *storage.Storage, server *settin
 
 		if status != 0 {
 			txt := http.StatusText(status)
+			if status == http.StatusPreconditionFailed {
+				txt = "File changed on the server; reload it before saving"
+			}
 			if status == http.StatusBadRequest && err != nil {
 				txt += " (" + err.Error() + ")"
 			}

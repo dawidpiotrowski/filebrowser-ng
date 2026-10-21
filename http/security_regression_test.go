@@ -1,6 +1,7 @@
 package fbhttp
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -351,13 +352,13 @@ func TestFilesystemMutationsRevokeSharesAcrossOverlappingScopes(t *testing.T) {
 }
 
 func TestExclusiveUploadCreatePreservesAConcurrentFile(t *testing.T) {
-	fs := afero.NewMemMapFs()
+	fs := files.NewScopedFs(afero.NewOsFs(), t.TempDir())
 	// Model another writer creating the target after a handler observed ENOENT.
 	if err := afero.WriteFile(fs, "/target", []byte("victim"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := writeFile(fs, "/target", strings.NewReader("attacker"), 0o600, 0o700, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
-	if !os.IsExist(err) {
+	if !errors.Is(err, os.ErrExist) {
 		t.Fatalf("exclusive create did not reject concurrent file: %v", err)
 	}
 	if b, _ := afero.ReadFile(fs, "/target"); string(b) != "victim" {

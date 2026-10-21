@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
 	"github.com/spf13/afero"
 )
 
@@ -16,24 +17,42 @@ import (
 // By default the rename filesystem system call is used. If src and dst point to different volumes
 // the file copy is used as a fallback
 func MoveFile(afs afero.Fs, src, dst string, fileMode, dirMode fs.FileMode) error {
-	if err := afs.Rename(src, dst); err == nil {
+	return MoveFileWithPolicy(afs, src, dst, fileMode, dirMode, true)
+}
+
+func MoveFileWithPolicy(afs afero.Fs, src, dst string, fileMode, dirMode fs.FileMode, overwrite bool) error {
+	var err error
+	if overwrite {
+		err = afs.Rename(src, dst)
+	} else {
+		err = files.RenameNoReplace(afs, src, dst)
+	}
+	if err == nil {
 		return nil
 	} else if !isCrossDevice(err) {
 		// Copy/delete must not bypass a failed rename's permission, sharing,
 		// read-only-filesystem or other errors.
 		return err
 	}
-	// fallback
-	err := Copy(afs, src, dst, fileMode, dirMode)
+	info, err := afs.Stat(src)
 	if err != nil {
-		// The destination can predate this move. Never delete it on failure;
-		// leave partial copies for recovery and retain the complete source.
 		return err
 	}
-	if err := afs.RemoveAll(src); err != nil {
+	if !info.Mode().IsRegular() {
+		return errors.ErrUnsupported
+	}
+	// fallback
+	if overwrite {
+		err = Copy(afs, src, dst, fileMode, dirMode)
+	} else {
+		err = CopyExclusive(afs, src, dst, fileMode, dirMode)
+	}
+	if err != nil {
+		// The destination can predate this move. An unsuccessful stage never
+		// replaces it; keep the complete source for recovery.
 		return err
 	}
-	return nil
+	return files.RemoveIfUnchanged(afs, src, info)
 }
 
 // CopyFile copies a file from source to dest and returns
@@ -42,7 +61,7 @@ func CopyFile(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode) 
 	return copyFile(afs, source, dest, fileMode, dirMode, os.O_WRONLY|os.O_CREATE)
 }
 
-func copyFile(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode, flags int) (retErr error) {
+func copyFile(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode, flags int) error {
 	if filepath.Clean(source) == filepath.Clean(dest) {
 		return fberrors.ErrInvalidRequestParams
 	}
@@ -67,48 +86,33 @@ func copyFile(afs afero.Fs, source, dest string, fileMode, dirMode fs.FileMode, 
 		return err
 	}
 
-	// Create the destination file.
-	// Open without O_TRUNC so identity checks apply to the actual destination
-	// handle. Checking names or stat'ing before open misses hardlinks, symlinks
-	// and a replacement inserted between the check and open.
-	dst, err := afs.OpenFile(dest, flags, fileMode)
-	if err != nil {
-		return err
-	}
-	defer func() { retErr = errors.Join(retErr, dst.Close()) }()
-	destInfo, err := dst.Stat()
-	if err != nil {
-		return err
-	}
-	if os.SameFile(info, destInfo) || !destInfo.Mode().IsRegular() {
+	if destInfo, err := afs.Stat(dest); err == nil && os.SameFile(info, destInfo) {
 		return fberrors.ErrInvalidRequestParams
 	}
-	if flags&os.O_EXCL == 0 {
-		if err := dst.Truncate(0); err != nil {
-			return err
+	dst, err := files.BeginAtomicWrite(afs, dest, files.WriteOptions{Mode: info.Mode(), Create: true, Replace: flags&os.O_EXCL == 0, Check: func(_ os.FileInfo) error {
+		current, err := afs.Stat(source)
+		if err != nil || !os.SameFile(info, current) || info.Size() != current.Size() || !info.ModTime().Equal(current.ModTime()) {
+			return files.ErrFileChanged
 		}
+		return nil
+	}})
+	if err != nil {
+		return err
 	}
+	defer dst.Abort()
 
 	// Copy the contents of the file.
 	_, err = io.Copy(dst, src)
 	if err != nil {
 		return err
 	}
-
-	// OS-backed ScopedFs returns an *os.File: set its mode through the same
-	// handle, rather than a pathname which another writer might replace.
-	if file, ok := dst.(interface{ Chmod(os.FileMode) error }); ok {
-		err = file.Chmod(info.Mode())
-	} else {
-		err = afs.Chmod(dest, info.Mode())
-	}
-	if err != nil {
-		return err
+	current, err := src.Stat()
+	if err != nil || current.Size() != info.Size() || !current.ModTime().Equal(info.ModTime()) {
+		return files.ErrFileChanged
 	}
 
-	// A cross-device move may only delete its source after flush AND close
-	// succeed. The deferred close contributes its error to the return value.
-	return dst.Sync()
+	_, err = dst.Commit()
+	return err
 }
 
 // CommonPrefix returns common directory path of provided files

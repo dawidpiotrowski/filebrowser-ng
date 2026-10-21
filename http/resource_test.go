@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/asdine/storm/v3"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
 	"github.com/spf13/afero"
 
 	"github.com/dawidpiotrowski/filebrowser-ng/v2/diskcache"
@@ -65,7 +66,7 @@ func TestResourceCopyDoesNotDereferenceEscapingSymlink(t *testing.T) {
 	// in a ScopedFs, mirroring production (users.User init).
 	st.Users = &customFSUser{
 		Store: st.Users,
-		fs:    afero.NewBasePathFs(afero.NewOsFs(), userScope),
+		fs:    files.NewScopedFs(afero.NewOsFs(), userScope),
 	}
 
 	signed := signToken(t, st, perm, key)
@@ -128,7 +129,7 @@ func scopedUserStorage(t *testing.T, userScope string, perm users.Permissions, k
 	}
 	st.Users = &customFSUser{
 		Store: st.Users,
-		fs:    afero.NewBasePathFs(afero.NewOsFs(), userScope),
+		fs:    files.NewScopedFs(afero.NewOsFs(), userScope),
 	}
 	return st
 }

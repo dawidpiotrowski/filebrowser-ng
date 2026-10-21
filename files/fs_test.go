@@ -38,10 +38,10 @@ func TestNewFs(t *testing.T) {
 		}
 	})
 
-	t.Run("enabled returns a BasePathFs that follows the escaping symlink", func(t *testing.T) {
+	t.Run("enabled follows external symlinks and retains namespace protection", func(t *testing.T) {
 		fs := NewFs(afero.NewOsFs(), scope, true)
-		if _, ok := fs.(*afero.BasePathFs); !ok {
-			t.Fatalf("expected *afero.BasePathFs, got %T", fs)
+		if _, ok := fs.(*ScopedFs); !ok {
+			t.Fatalf("expected *ScopedFs, got %T", fs)
 		}
 		if _, err := fs.Stat("/escape"); err != nil {
 			t.Fatalf("expected escaping symlink to be followed, got %v", err)

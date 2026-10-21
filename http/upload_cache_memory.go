@@ -1,26 +1,25 @@
 package fbhttp
 
 import (
+	"context"
 	"fmt"
 	"hash/fnv"
-	"os"
 	"sync"
 	"time"
 
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
 	"github.com/jellydator/ttlcache/v3"
 )
 
 const uploadCacheTTL = 3 * time.Minute
 
-// UploadCache is an interface for tracking active uploads.
-// Allows for different backends (e.g. in-memory or redis)
-// to support both single instance and multi replica deployments.
+// UploadCache tracks private staged uploads in one writer process.
 type UploadCache interface {
 	// Lock serializes mutations of one upload across stat/check/write/complete.
 	Lock(filePath string) (unlock func(), err error)
 
-	// Register binds an upload to its creator and the identity obtained from the
-	// opened file handle. Expiry never removes filesystem data.
+	// Register binds an upload to its creator and private stage. Expiry aborts
+	// that stage; it never removes the visible destination.
 	Register(filePath string, upload UploadInfo)
 
 	// Complete removes an upload from the cache
@@ -36,25 +35,31 @@ type UploadCache interface {
 	Close()
 }
 
-// UploadInfo is server-only authorization state. Identity comes from the opened
-// file's Stat, not a pathname that another writer might replace.
+// UploadInfo is server-only authorization state. Stage owns pinned handles and
+// the original destination version; it is never served as a public file.
 type UploadInfo struct {
-	Length   int64
-	OwnerID  uint
-	Identity os.FileInfo
+	Length  int64
+	OwnerID uint
+	Stage   files.AtomicFile
 }
 
 // memoryUploadCache is an upload cache for single replica deployments
 type memoryUploadCache struct {
-	cache *ttlcache.Cache[string, UploadInfo]
+	cache        *ttlcache.Cache[string, UploadInfo]
+	stopEviction func()
 }
 
 func newMemoryUploadCache() *memoryUploadCache {
-	cache := ttlcache.New[string, UploadInfo]()
+	cache := ttlcache.New[string, UploadInfo](ttlcache.WithDisableTouchOnHit[string, UploadInfo]())
+	stop := cache.OnEviction(func(_ context.Context, _ ttlcache.EvictionReason, item *ttlcache.Item[string, UploadInfo]) {
+		if stage := item.Value().Stage; stage != nil {
+			_ = stage.Abort()
+		}
+	})
 
 	go cache.Start()
 
-	return &memoryUploadCache{cache: cache}
+	return &memoryUploadCache{cache: cache, stopEviction: stop}
 }
 
 func (c *memoryUploadCache) Register(filePath string, upload UploadInfo) {
@@ -79,6 +84,8 @@ func (c *memoryUploadCache) Touch(filePath string) {
 
 func (c *memoryUploadCache) Close() {
 	c.cache.Stop()
+	c.cache.DeleteAll()
+	c.stopEviction()
 }
 
 // uploadLocks uses bounded striped locks; colliding paths can safely retry.

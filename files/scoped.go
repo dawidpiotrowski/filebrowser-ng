@@ -17,8 +17,9 @@ import (
 // confinement — and adds a per-operation scope check on every call that would
 // dereference a symlink at the OS layer (open, stat, lstat, chmod, …).
 type ScopedFs struct {
-	base     *afero.BasePathFs
-	osBacked bool
+	base           *afero.BasePathFs
+	osBacked       bool
+	followExternal bool
 }
 
 var (
@@ -36,34 +37,17 @@ func NewScopedFs(source afero.Fs, path string) *ScopedFs {
 	if s, ok := source.(*ScopedFs); ok {
 		osBacked = s.osBacked
 		source = s.base
-	} else if _, ok := source.(*afero.BasePathFs); ok {
-		// Unwrap returned BasePathFiles, never bypass custom/read-only adapters.
-		if info, err := source.Stat(path); err == nil && (info.IsDir() || info.Mode().IsRegular()) {
-			if f, err := source.Open(path); err == nil {
-				inner := f
-				for {
-					wrapped, ok := inner.(*afero.BasePathFile)
-					if !ok {
-						break
-					}
-					inner = wrapped.File
-				}
-				_, osBacked = inner.(*os.File)
-				_ = f.Close()
-			}
-		}
 	}
 	return &ScopedFs{base: afero.NewBasePathFs(source, path).(*afero.BasePathFs), osBacked: osBacked}
 }
 
 // NewFs builds a user filesystem rooted at path. When followExternal is true it
-// returns a bare BasePathFs, so symlinks whose target resolves outside the scope
-// are followed; otherwise it returns a ScopedFs that refuses to follow them.
+// follows symlinks outside the scope. Both modes enforce the private staging
+// namespace and retain an explicit OS-backed capability for atomic operations.
 func NewFs(source afero.Fs, path string, followExternal bool) afero.Fs {
-	if followExternal {
-		return afero.NewBasePathFs(source, path)
-	}
-	return NewScopedFs(source, path)
+	fsys := NewScopedFs(source, path)
+	fsys.followExternal = followExternal
+	return fsys
 }
 
 // BasePath returns the underlying *afero.BasePathFs of a user filesystem built
@@ -89,11 +73,30 @@ func (s *ScopedFs) RealPath(name string) (string, error) {
 	return s.base.RealPath(name)
 }
 
+func (s *ScopedFs) CheckPath(name string) error { return s.guard(name) }
+
 // guard returns an error if name's on-disk target resolves outside the scope.
 func (s *ScopedFs) guard(name string) error {
+	if IsReservedPath(name) {
+		return os.ErrPermission
+	}
 	if !s.osBacked {
 		_, err := s.base.RealPath(name)
 		return err
+	}
+	rootName, err := filepath.EvalSymlinks(afero.FullBaseFsPath(s.base, "/"))
+	if err != nil {
+		return err
+	}
+	target, err := ResolveMissingPath(afero.FullBaseFsPath(s.base, name))
+	if err != nil {
+		return err
+	}
+	if IsReservedPath(rootName) || IsReservedPath(target) {
+		return os.ErrPermission
+	}
+	if s.followExternal {
+		return nil
 	}
 	ok, err := s.within(name)
 	if err != nil {
@@ -203,6 +206,9 @@ func (s *ScopedFs) confined(name string, followFinal bool) (*os.Root, string, er
 	if err != nil {
 		return nil, "", err
 	}
+	if s.followExternal {
+		rootName = filepath.VolumeName(target) + string(filepath.Separator)
+	}
 	info, err := os.Stat(rootName)
 	if err != nil {
 		return nil, "", err
@@ -274,10 +280,15 @@ func (s *ScopedFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File
 		}
 		return nil, os.ErrPermission
 	}
+	if info.IsDir() {
+		return &visibleDirectory{File: f}, nil
+	}
 	return f, nil
 }
 
 func (s *ScopedFs) Remove(name string) error {
+	mutationMu.Lock()
+	defer mutationMu.Unlock()
 	if !s.osBacked {
 		return s.base.Remove(name)
 	}
@@ -290,6 +301,8 @@ func (s *ScopedFs) Remove(name string) error {
 }
 
 func (s *ScopedFs) RemoveAll(name string) error {
+	mutationMu.Lock()
+	defer mutationMu.Unlock()
 	if !s.osBacked {
 		return s.base.RemoveAll(name)
 	}
@@ -305,17 +318,7 @@ func (s *ScopedFs) Rename(oldname, newname string) error {
 	if !s.osBacked {
 		return s.base.Rename(oldname, newname)
 	}
-	root, oldrel, err := s.confined(oldname, false)
-	if err != nil {
-		return err
-	}
-	defer root.Close()
-	other, newrel, err := s.confined(newname, false)
-	if err != nil {
-		return err
-	}
-	defer other.Close()
-	return root.Rename(oldrel, newrel)
+	return s.rename(oldname, newname, true)
 }
 
 func (s *ScopedFs) Stat(name string) (os.FileInfo, error) {
@@ -341,7 +344,7 @@ func (s *ScopedFs) Chmod(name string, mode os.FileMode) error {
 		return err
 	}
 	defer f.Close()
-	return f.(*os.File).Chmod(mode)
+	return f.(interface{ Chmod(os.FileMode) error }).Chmod(mode)
 }
 
 func (s *ScopedFs) Chown(name string, uid, gid int) error {

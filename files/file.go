@@ -50,7 +50,8 @@ type FileInfo struct {
 	Checksums  map[string]string `json:"checksums,omitempty"`
 	Token      string            `json:"token,omitempty"`
 	currentDir []os.FileInfo     `json:"-"`
-	Resolution *ImageResolution  `json:"resolution,omitempty"`
+	identity   os.FileInfo
+	Resolution *ImageResolution `json:"resolution,omitempty"`
 }
 
 // FileOptions are the options when getting a file info.
@@ -115,6 +116,7 @@ func stat(opts *FileOptions) (*FileInfo, error) {
 			return nil, err
 		}
 		file = &FileInfo{
+			identity:  info,
 			Fs:        opts.Fs,
 			Path:      opts.Path,
 			Name:      info.Name(),
@@ -145,12 +147,14 @@ func stat(opts *FileOptions) (*FileInfo, error) {
 
 	// set correct file size in case of symlink
 	if file != nil && file.IsSymlink {
+		file.identity = info
 		file.Size = info.Size()
 		file.IsDir = info.IsDir()
 		return file, nil
 	}
 
 	file = &FileInfo{
+		identity:  info,
 		Fs:        opts.Fs,
 		Path:      opts.Path,
 		Name:      info.Name(),
@@ -275,6 +279,15 @@ func (i *FileInfo) detectType(modify, saveContent, readHeader bool, calcImgRes b
 				return err
 			}
 			defer fd.Close()
+			// The pathname may have been replaced since the initial metadata
+			// lookup. Bind the editor version to the handle supplying its bytes.
+			info, err := fd.Stat()
+			if err != nil {
+				return err
+			}
+			i.identity = info
+			i.Size = info.Size()
+			i.ModTime = info.ModTime()
 			content, err := io.ReadAll(io.LimitReader(fd, 10*1024*1024+1))
 			if err != nil {
 				return err

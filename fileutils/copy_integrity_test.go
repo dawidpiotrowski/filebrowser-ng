@@ -47,22 +47,23 @@ type copyFlushFailureFs struct {
 }
 
 type copyFlushFailureFile struct {
-	afero.File
+	files.AtomicFile
 	syncErr, closeErr error
 }
 
 func (f copyFlushFailureFs) Rename(_, _ string) error { return syscall.EXDEV }
 
-func (f copyFlushFailureFs) OpenFile(name string, flags int, mode os.FileMode) (afero.File, error) {
-	file, err := f.Fs.OpenFile(name, flags, mode)
-	if err == nil && flags&(os.O_WRONLY|os.O_RDWR) != 0 {
-		return &copyFlushFailureFile{File: file, syncErr: f.syncErr, closeErr: f.closeErr}, nil
+func (f copyFlushFailureFs) BeginAtomicWrite(name string, opts files.WriteOptions) (files.AtomicFile, error) {
+	stage, err := files.BeginAtomicWrite(f.Fs, name, opts)
+	if err != nil {
+		return nil, err
 	}
-	return file, err
+	return &copyFlushFailureFile{AtomicFile: stage, syncErr: f.syncErr, closeErr: f.closeErr}, nil
 }
 
-func (f *copyFlushFailureFile) Sync() error  { return f.syncErr }
-func (f *copyFlushFailureFile) Close() error { return errors.Join(f.File.Close(), f.closeErr) }
+func (f *copyFlushFailureFile) Commit() (os.FileInfo, error) {
+	return nil, errors.Join(f.syncErr, f.closeErr)
+}
 
 func TestCrossDeviceMoveKeepsSourceWhenCopyCannotFlush(t *testing.T) {
 	failure := errors.New("storage flush failed")
@@ -72,7 +73,7 @@ func TestCrossDeviceMoveKeepsSourceWhenCopyCannotFlush(t *testing.T) {
 			name = "close"
 		}
 		t.Run(name, func(t *testing.T) {
-			mem := afero.NewBasePathFs(afero.NewMemMapFs(), string(filepath.Separator))
+			mem := files.NewScopedFs(afero.NewOsFs(), t.TempDir())
 			if err := afero.WriteFile(mem, "/source", []byte("keep-source"), 0o600); err != nil {
 				t.Fatal(err)
 			}

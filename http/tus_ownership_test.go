@@ -56,8 +56,8 @@ func TestTusUploadsAreBoundToTheirCreator(t *testing.T) {
 			if w.Code != http.StatusForbidden {
 				t.Errorf("another user accessed the active upload: %d %s", w.Code, w.Body)
 			}
-			if content, err := os.ReadFile(filepath.Join(root, "upload.txt")); err != nil || len(content) != 0 {
-				t.Fatalf("another user changed/deleted upload: %q %v", content, err)
+			if _, err := os.Stat(filepath.Join(root, "upload.txt")); !os.IsNotExist(err) {
+				t.Fatalf("unfinished upload became public: %v", err)
 			}
 			w = tusOwnershipRequest(handle(tusPatchHandler(cache), "", st, server), "PATCH", ownerToken, "0", "hello")
 			if w.Code != http.StatusNoContent {
@@ -80,13 +80,10 @@ func TestTusCannotModifyAReplacementAtTheOriginalPath(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 	name := filepath.Join(root, "upload.txt")
-	if err := os.Rename(name, filepath.Join(root, "original-upload.txt")); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.WriteFile(name, []byte("keep"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	w := tusOwnershipRequest(handle(tusPatchHandler(cache), "", st, server), "PATCH", token, "4", "!")
+	w := tusOwnershipRequest(handle(tusPatchHandler(cache), "", st, server), "PATCH", token, "0", "hello")
 	if w.Code != http.StatusConflict {
 		t.Errorf("stale upload modified replacement: %d %s", w.Code, w.Body)
 	}

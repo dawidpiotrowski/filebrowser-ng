@@ -28,12 +28,16 @@ func (f *failingOpenFs) Open(name string) (afero.File, error) {
 	return f.Fs.Open(name)
 }
 
+func (f *failingOpenFs) BeginAtomicWrite(name string, opts files.WriteOptions) (files.AtomicFile, error) {
+	return files.BeginAtomicWrite(f.Fs, name, opts)
+}
+
 // CopyDir is documented to keep going when it hits an error and to report the
 // error afterwards. A sub-directory that cannot be opened must therefore yield
 // an error (and leave the other, readable entries copied) rather than
 // panicking on a nil directory handle.
 func TestCopyDirUnreadableSubdirReturnsError(t *testing.T) {
-	mem := afero.NewMemMapFs()
+	mem := files.NewScopedFs(afero.NewOsFs(), t.TempDir())
 	if err := mem.MkdirAll("/srcdir/sub", 0o755); err != nil {
 		t.Fatal(err)
 	}

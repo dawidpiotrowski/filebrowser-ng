@@ -57,10 +57,8 @@ func TestTusPatchEnforcesUploadLength(t *testing.T) {
 	if rec := patchReq(strings.Repeat("A", 5000)); rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("over-length PATCH expected 413, got %d body=%q", rec.Code, rec.Body.String())
 	}
-	if fi, err := os.Stat(filepath.Join(userScope, "file.txt")); err != nil {
-		t.Fatalf("stat file.txt: %v", err)
-	} else if fi.Size() > 5 {
-		t.Fatalf("wrote %d bytes despite Upload-Length 5", fi.Size())
+	if _, err := os.Stat(filepath.Join(userScope, "file.txt")); !os.IsNotExist(err) {
+		t.Fatalf("rejected partial upload became public: %v", err)
 	}
 
 	// A correctly-sized upload still completes.

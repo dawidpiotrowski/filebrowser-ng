@@ -35,6 +35,7 @@ var resourceGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 	if err != nil {
 		return errToStatus(err), err
 	}
+	w.Header().Set("ETag", file.ETag())
 
 	encoding := r.Header.Get("X-Encoding")
 	if file.IsDir {
@@ -54,6 +55,11 @@ var resourceGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 			return errToStatus(err), err
 		}
 		defer f.Close()
+		info, err := f.Stat()
+		if err != nil {
+			return errToStatus(err), err
+		}
+		w.Header().Set("ETag", files.FileETag(info))
 
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
@@ -174,12 +180,12 @@ func resourcePostHandler(fileCache FileCache) handleFunc {
 		}
 
 		err = d.RunHook(func() error {
-			info, writeErr := writeFile(d.user.Fs, r.URL.Path, r.Body, d.settings.FileMode, d.settings.DirMode, flags)
+			info, writeErr := writeFileConditional(r.Context(), d.user.Fs, r.URL.Path, r.Body, d.settings.FileMode, d.settings.DirMode, flags, r.Header.Get("If-Match"))
 			if writeErr != nil {
 				return writeErr
 			}
 
-			etag := fmt.Sprintf(`"%x%x"`, info.ModTime().UnixNano(), info.Size())
+			etag := files.FileETag(info)
 			w.Header().Set("ETag", etag)
 			return nil
 		}, "upload", r.URL.Path, "", d.user)
@@ -207,12 +213,12 @@ var resourcePutHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 	}
 
 	err = d.RunHook(func() error {
-		info, writeErr := writeFile(d.user.Fs, r.URL.Path, r.Body, d.settings.FileMode, d.settings.DirMode, os.O_WRONLY|os.O_TRUNC)
+		info, writeErr := writeFileConditional(r.Context(), d.user.Fs, r.URL.Path, r.Body, d.settings.FileMode, d.settings.DirMode, os.O_WRONLY|os.O_TRUNC, r.Header.Get("If-Match"))
 		if writeErr != nil {
 			return writeErr
 		}
 
-		etag := fmt.Sprintf(`"%x%x"`, info.ModTime().UnixNano(), info.Size())
+		etag := files.FileETag(info)
 		w.Header().Set("ETag", etag)
 		return nil
 	}, "save", r.URL.Path, "", d.user)
@@ -346,38 +352,48 @@ func addVersionSuffix(source string, afs afero.Fs) string {
 }
 
 func writeFile(afs afero.Fs, dst string, in io.Reader, fileMode, dirMode fs.FileMode, flags int) (os.FileInfo, error) {
+	return writeFileConditional(context.Background(), afs, dst, in, fileMode, dirMode, flags, "")
+}
+
+func writeFileConditional(ctx context.Context, afs afero.Fs, dst string, in io.Reader, fileMode, dirMode fs.FileMode, flags int, ifMatch string) (os.FileInfo, error) {
 	if flags&os.O_CREATE != 0 {
 		dir, _ := path.Split(dst)
 		if err := afs.MkdirAll(dir, dirMode); err != nil {
 			return nil, err
 		}
 	}
-	// Exclusive creation binds the permission decision to the syscall: a file
-	// appearing after stat must not be truncated by a Create-only request.
-	file, err := afs.OpenFile(dst, flags, fileMode)
+	file, err := files.BeginAtomicWrite(afs, dst, files.WriteOptions{Mode: fileMode, Create: flags&os.O_CREATE != 0, Replace: flags&os.O_EXCL == 0, Check: func(info os.FileInfo) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if !files.MatchETag(ifMatch, info) {
+			return files.ErrPrecondition
+		}
+		return nil
+	}})
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer file.Abort()
 
-	_, err = io.Copy(file, in)
-	if err != nil {
-		return nil, err
-	}
-
-	// Sync the file to ensure all data is written to storage.
-	// to prevent file corruption.
-	if err := file.Sync(); err != nil {
-		return nil, err
-	}
-
-	// Gets the info about the file.
-	info, err := file.Stat()
+	_, err = io.Copy(file, &contextReader{ctx: ctx, Reader: in})
 	if err != nil {
 		return nil, err
 	}
 
-	return info, nil
+	return file.Commit()
+}
+
+type contextReader struct {
+	io.Reader
+	ctx context.Context
+}
+
+func (r *contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.Reader.Read(p)
 }
 
 func delThumbs(ctx context.Context, fileCache FileCache, file *files.FileInfo) error {
@@ -405,7 +421,7 @@ func patchAction(ctx context.Context, action, src, dst string, d *data, fileCach
 	case "rename":
 		shareMutation.Lock()
 		defer shareMutation.Unlock()
-		if !d.user.Perm.Rename {
+		if !d.user.Perm.Rename || (overwrite && !d.user.Perm.Modify) {
 			return fberrors.ErrPermissionDenied
 		}
 		src = path.Clean("/" + src)
@@ -435,7 +451,7 @@ func patchAction(ctx context.Context, action, src, dst string, d *data, fileCach
 		if err := revokeSharesForPath(d, dst); err != nil {
 			return err
 		}
-		return fileutils.MoveFile(d.user.Fs, src, dst, d.settings.FileMode, d.settings.DirMode)
+		return fileutils.MoveFileWithPolicy(d.user.Fs, src, dst, d.settings.FileMode, d.settings.DirMode, overwrite)
 	default:
 		return fmt.Errorf("unsupported action %s: %w", action, fberrors.ErrInvalidRequestParams)
 	}

@@ -44,7 +44,10 @@ func copyWithFlags(afs afero.Fs, src, dst string, fileMode, dirMode fs.FileMode,
 	}
 
 	if info.IsDir() {
-		return copyDir(afs, src, dst, fileMode, dirMode, flags)
+		if err := checkCopyDirectory(afs, src, dst); err != nil {
+			return err
+		}
+		return copyDir(afs, src, dst, fileMode, dirMode, flags, 0)
 	}
 
 	return copyFile(afs, src, dst, fileMode, dirMode, flags)

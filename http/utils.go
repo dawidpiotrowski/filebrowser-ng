@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	libErrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
 	imgErrors "github.com/dawidpiotrowski/filebrowser-ng/v2/img"
 )
 
@@ -78,6 +79,14 @@ func errToStatus(err error) int {
 	switch {
 	case err == nil:
 		return http.StatusOK
+	case errors.Is(err, files.ErrPrecondition):
+		return http.StatusPreconditionFailed
+	case errors.Is(err, files.ErrFileChanged):
+		return http.StatusConflict
+	case errors.Is(err, files.ErrWriteBusy):
+		return http.StatusTooManyRequests
+	case errors.Is(err, errors.ErrUnsupported):
+		return http.StatusNotImplemented
 	case errors.Is(err, os.ErrPermission):
 		return http.StatusForbidden
 	case errors.Is(err, os.ErrNotExist), errors.Is(err, libErrors.ErrNotExist):
@@ -86,7 +95,7 @@ func errToStatus(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, libErrors.ErrPermissionDenied):
 		return http.StatusForbidden
-	case errors.Is(err, libErrors.ErrInvalidRequestParams):
+	case errors.Is(err, libErrors.ErrInvalidRequestParams), errors.Is(err, libErrors.ErrSourceIsParent):
 		return http.StatusBadRequest
 	case errors.Is(err, libErrors.ErrRootUserDeletion):
 		return http.StatusForbidden

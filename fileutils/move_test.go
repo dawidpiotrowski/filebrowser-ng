@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/dawidpiotrowski/filebrowser-ng/v2/files"
 	"github.com/spf13/afero"
 )
 
@@ -17,6 +18,14 @@ type failedRenameFs struct {
 }
 
 func (f failedRenameFs) Rename(_, _ string) error { return f.renameErr }
+
+func (f failedRenameFs) RemoveIfUnchanged(name string, info os.FileInfo) error {
+	return files.RemoveIfUnchanged(f.Fs, name, info)
+}
+
+func (f failedRenameFs) BeginAtomicWrite(name string, opts files.WriteOptions) (files.AtomicFile, error) {
+	return files.BeginAtomicWrite(f.Fs, name, opts)
+}
 
 func (f failedRenameFs) Open(name string) (afero.File, error) {
 	if name == "/source" && f.readErr != nil {
@@ -64,7 +73,7 @@ func TestCrossDeviceMoveStillWorks(t *testing.T) {
 	// Normalize virtual paths through the root adapter, as production user
 	// filesystems do. MemMapFs.Chmod otherwise treats / and \\ differently on
 	// Windows even when OpenFile accepted the forward-slash spelling.
-	mem := afero.NewBasePathFs(afero.NewMemMapFs(), string(filepath.Separator))
+	mem := files.NewScopedFs(afero.NewOsFs(), t.TempDir())
 	if err := afero.WriteFile(mem, "/source", []byte("source"), 0o600); err != nil {
 		t.Fatal(err)
 	}
