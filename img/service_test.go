@@ -3,7 +3,7 @@ package img
 import (
 	"bytes"
 	"context"
-	"github.com/disintegration/imaging"
+	"github.com/kovidgoyal/imaging"
 	"image"
 	"image/color"
 	"image/gif"

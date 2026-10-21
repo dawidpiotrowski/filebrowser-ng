@@ -9,8 +9,8 @@ import (
 	"image"
 	"io"
 
-	"github.com/disintegration/imaging"
 	"github.com/dsoprea/go-exif/v3"
+	"github.com/kovidgoyal/imaging"
 	"github.com/marusama/semaphore/v2"
 
 	exifcommon "github.com/dsoprea/go-exif/v3/common"

@@ -5,12 +5,12 @@ go 1.27.3
 require (
 	github.com/asdine/storm/v3 v3.2.1
 	github.com/asticode/go-astisub v0.42.0
-	github.com/disintegration/imaging v1.6.2
 	github.com/dsoprea/go-exif/v3 v3.0.1
 	github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/gorilla/mux v1.8.1
 	github.com/jellydator/ttlcache/v3 v3.4.1
+	github.com/kovidgoyal/imaging v0.0.0-20240322044915-7175a8158983
 	github.com/maruel/natural v1.3.0
 	github.com/marusama/semaphore/v2 v2.5.0
 	github.com/mholt/archives v0.1.5
@@ -78,6 +78,3 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-// CVE-2023-36308: upstream has no fixed tag; pin the minimal compatible scanner fix.
-replace github.com/disintegration/imaging => github.com/kovidgoyal/imaging v0.0.0-20240322044727-68f6e7d85d4e
