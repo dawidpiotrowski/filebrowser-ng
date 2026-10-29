@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file. See [commit
 
 ## Unreleased (local)
 
+* Replace browser JWT storage with opaque HttpOnly sessions, session-bound CSRF/origin checks, idle/absolute expiry and coordinated multi-tab renewal/logout; preserve explicit machine API authentication.
+* Remove legacy JWT storage on startup and fence queued writes/uploads across account changes; require explicit TLS proxy trust. See the [browser-session review](docs/security/browser-sessions-2026-10-29.md).
+
 * Close the rename conflict race with native no-replace operations; retain fast same-volume moves and reject unsafe cross-volume directory moves.
 * Stage uploads, editor saves and file copies privately, flush/close before atomic publication, preserve security metadata, and reject competing target/source changes.
 * Add conditional ETag saves in the editor and keep unsaved work after conflicts; TUS stages chunks until completion and cancels/expires without damaging visible files.

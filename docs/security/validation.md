@@ -25,3 +25,7 @@ The frontend build emits expected notices for server-templated reCAPTCHA/custom 
 The CI workflow additionally targets Linux, macOS, and Windows. Local results do not substitute for remote CI results; inspect the repository Actions tab for the pushed commit. Cross-platform runtime behavior and media/preview flows outside these tests still need deployment-specific verification.
 
 Repository setup: issue tracking, private vulnerability reporting, vulnerability alerts, and automated dependency security-fix PRs enabled. No release was tagged or pushed to a container registry, and no existing production deployment was changed.
+
+## Local browser-session follow-up — 2026-10-29
+
+The earlier results above describe their original release/baseline. HttpOnly browser sessions, CSRF, explicit machine authentication and cross-tab behavior are verified separately in the [local browser-session report](browser-sessions-2026-10-29.md). These changes have not been pushed, released or deployed.
