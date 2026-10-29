@@ -8,7 +8,7 @@ The user performs environment validation. Further agent work is limited to repos
 
 - Prepare ng.4 version defaults, a consolidated changelog and explicit authentication/filesystem migration notes. Published pull/Compose examples remain on ng.3 until publication is confirmed.
 - Update x/net from v0.60.0 to v0.62.0 for GO-2026-6860 and GO-2026-6866. Its required x/crypto, x/sync, x/sys and x/text versions move together; no vulnerability-scan exception is added.
-- Require the complete Linux/macOS/Windows backend matrix before container publication. The previous ng.3 branch run had a cancelled macOS job; its green container publication is not evidence for the new Windows atomic operations.
+- Require Linux backend, browser and container checks before container publication. Linux/Docker/NAS use is the release priority. Windows/macOS checks remain in branch CI, without blocking Linux image publication; native Windows runtime validation is separate work.
 - Add real browser-session tests to CI using isolated, pinned Playwright tooling. Add a disposable container upgrade test covering the published ng.3 digest, default and NAS UID/GID, CSRF, conditional writes, staged TUS, public links, restart persistence and logout.
 - Limit binary archive targets to Linux, macOS and Windows. The BSD atomic-write adapters currently return unsupported; do not advertise functional BSD write support through an archive matrix.
 
@@ -35,7 +35,7 @@ Detailed local logs are ignored under `.local/release-ng4-2026-10-29/`. Local te
 
 ## Publication and operator verification still pending
 
-The user decides when to push the prepared source and run CI. The publish workflow must verify the exact tagged commit and pass its full matrix before any image is announced. Native Windows and native amd64 runner results remain pending; cross-compilation/emulation must not be substituted for them.
+The user decides when to push the prepared source and run CI. The publish workflow must verify the exact tagged commit and pass its Linux release checks before any image is announced. Native Linux amd64/arm64 runner results remain pending; local emulation must not be substituted for them. Native Windows runtime checks are not a condition of this Linux image release.
 
 The user also verifies the actual Ugreen proxy peer CIDRs, forwarded scheme/Host handling, ownership/ACLs, free space and representative filesystem operations using copied data. Take a cold database/configuration backup and matching data snapshot before a live upgrade. Storage power-loss behavior is not established by atomic-visibility tests.
 

@@ -21,7 +21,7 @@ All notable changes to this project will be documented in this file. See [commit
 
 * Browser users must sign in again. Machine login requires `X-FB-Client: api`; HTTPS reverse proxies require explicit `trustedProxies`, preserved Host and overwritten X-Forwarded-Proto.
 * Atomic replacement requires directory write/delete rights and temporary space. Review hardlink, staging-name, upload-restart and rollback changes before upgrading.
-* Gate container publication on Linux/macOS/Windows verification, real multi-tab browser tests and non-root container migration/restart tests on both Linux architectures.
+* Gate container publication on Linux verification, real multi-tab browser tests and non-root container migration/restart tests on both Linux architectures. Other operating systems remain in branch CI and do not block Linux image publication.
 
 [Prepared release notes](docs/releases/2.64.0-ng.4.md), [migration](docs/migration.md), [atomic mutation review](docs/security/atomic-writes-2026-10-21.md), [browser sessions](docs/security/browser-sessions-2026-10-29.md). No ng.4 image, tag or release has been published.
 

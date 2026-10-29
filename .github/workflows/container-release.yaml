@@ -48,7 +48,8 @@ jobs:
     uses: ./.github/workflows/ci.yaml
     with:
       ref: ${{ needs.version.outputs.commit }}
-      linux_only: false
+      # Container releases target Linux; other OS checks remain in branch CI.
+      linux_only: true
 
   publish:
     needs: [version, verify]
