@@ -6,7 +6,7 @@ builds:
     binary: filebrowser-ng
     ldflags:
       - -s -w -X github.com/dawidpiotrowski/filebrowser-ng/v2/version.Version={{ .Version }} -X github.com/dawidpiotrowski/filebrowser-ng/v2/version.CommitSHA={{ .ShortCommit }}
-    goos: [linux, darwin, windows, freebsd, openbsd]
+    goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 archives:
   - name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}_{{.Arch}}"

@@ -2,21 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
-## Unreleased (local)
+## 2.64.0-ng.4 — prepared, not published (2026-10-29)
 
-* Replace browser JWT storage with opaque HttpOnly sessions, session-bound CSRF/origin checks, idle/absolute expiry and coordinated multi-tab renewal/logout; preserve explicit machine API authentication.
-* Remove legacy JWT storage on startup and fence queued writes/uploads across account changes; require explicit TLS proxy trust. See the [browser-session review](docs/security/browser-sessions-2026-10-29.md).
+### Security
 
-* Close the rename conflict race with native no-replace operations; retain fast same-volume moves and reject unsafe cross-volume directory moves.
-* Stage uploads, editor saves and file copies privately, flush/close before atomic publication, preserve security metadata, and reject competing target/source changes.
-* Add conditional ETag saves in the editor and keep unsaved work after conflicts; TUS stages chunks until completion and cancels/expires without damaging visible files.
+* Move browser authentication to opaque HttpOnly cookies, enforce session-bound CSRF/origin checks and idle/absolute expiry, and coordinate login/renewal/logout across tabs. Remove legacy JWT storage and block queued writes after account changes.
+* Separate explicit machine API login from browser sessions and require trusted TCP proxy peers before accepting forwarded HTTPS.
+* Bind resumable uploads to their creator and target identity; reject invalid/overflowing share lifetimes and generate new public links with 128 bits of randomness.
+* Update `golang.org/x/net` to v0.62.0 for GO-2026-6860 and GO-2026-6866, together with its required x/crypto, x/sync, x/sys and x/text versions.
 
-* Prevent non-override copies from overwriting concurrent files; reject copies onto source aliases before truncation and preserve move sources on destination flush/close failure.
-* Bind resumable uploads to their creator and original file identity, while allowing the same user to resume after session renewal.
-* Validate share lifetimes without overflow, return client errors for invalid parameters, and generate new public links with 128 bits of randomness; preserve old links.
-* Fix delayed browser responses acting on replacement sessions and refresh authentication before each TUS request.
+### File integrity
 
-See the [local follow-up review](docs/security/follow-up-review-2026-10-21.md), [atomic mutation review](docs/security/atomic-writes-2026-10-21.md) and [security plan](docs/security/roadmap.md). These changes have no published image or release yet.
+* Close rename/copy no-overwrite races with native atomic exclusion. Preserve same-volume rename performance; reject non-transactional cross-volume directory moves.
+* Privately stage uploads, editor saves, copies and TUS chunks; preserve previous files on pre-commit failures and hide incomplete content from listings, downloads, shares and branding.
+* Preserve required file security metadata, reject competing source/target changes, and enforce editor ETag conditions while retaining unsaved changes after conflicts.
+
+### Upgrade and release verification
+
+* Browser users must sign in again. Machine login requires `X-FB-Client: api`; HTTPS reverse proxies require explicit `trustedProxies`, preserved Host and overwritten X-Forwarded-Proto.
+* Atomic replacement requires directory write/delete rights and temporary space. Review hardlink, staging-name, upload-restart and rollback changes before upgrading.
+* Gate container publication on Linux/macOS/Windows verification, real multi-tab browser tests and non-root container migration/restart tests on both Linux architectures.
+
+[Prepared release notes](docs/releases/2.64.0-ng.4.md), [migration](docs/migration.md), [atomic mutation review](docs/security/atomic-writes-2026-10-21.md), [browser sessions](docs/security/browser-sessions-2026-10-29.md). No ng.4 image, tag or release has been published.
 
 ## [2.64.0-ng.3](https://github.com/dawidpiotrowski/filebrowser-ng/compare/v2.64.0-ng.2...v2.64.0-ng.3) (2026-10-21)
 

@@ -1,4 +1,20 @@
-# Migration from File Browser v2.63.23
+# Migration
+
+## Upgrade from 2.64.0-ng.3 to 2.64.0-ng.4 (prepared)
+
+ng.4 is prepared locally and is not published. Keep using the published ng.3 image until publication is explicitly confirmed. The [prepared release notes](releases/2.64.0-ng.4.md) describe the candidate and its remaining publication gates.
+
+1. Stop the service and take a consistent database/configuration backup and data snapshot. Keep backups outside the served tree. Test on copies and retain the ng.3 image/digest for recovery. Run one writer process per database/tree.
+2. For HTTPS terminated at a proxy, configure the new top-level `trustedProxies` server option with the proxy's **actual TCP peer CIDRs**. Preserve the external Host and overwrite X-Forwarded-Proto with `https`. The proxy-auth identity allowlist also supplies scheme trust in proxy-auth mode. Do not trust an entire LAN or a visitor-supplied forwarded address to avoid identifying the proxy. JSON authentication also needs this scheme trust; otherwise HTTPS-origin writes can fail. Direct TLS and plain LAN HTTP keep their distinct cookie settings. See [authentication](authentication.md#https-proxies-and-lan-http).
+3. Preserve UID/GID, `/srv`, `/database/filebrowser.db`, the 8080 container port and existing mounts. ng.4 extends persisted session records/indexes; it does not require a new database or account recreation. All existing JWT sessions require a fresh login, and the browser removes legacy JWT storage automatically.
+4. Update machine clients: send `X-FB-Client: api` only for credential login, without cookies or browser metadata; retain the returned JWT for X-Auth. Browser login/renewal return JSON and use cookie-bound CSRF headers instead of JWTs. Machine renewal still consumes its old token. Custom browser clients must adopt the complete cookie/CSRF protocol.
+5. Check directory write/delete rights, temporary space and preservation of existing ownership/ACL/xattrs on a copied representative directory. Atomic replacement creates a new inode; open readers and hardlinks retain the previous inode. Unsupported filesystems or unpreservable security metadata fail without a truncating fallback. Cross-volume directory moves return 501.
+6. Inventory legitimate names beginning with `.filebrowser-ng-staging-` in any path component; this namespace is now reserved. New TUS uploads remain private until completion. Pending uploads cannot resume across upgrade/restart; start them again. New links have longer opaque IDs, while existing public links retain their permissions and expiry.
+7. Once a numbered image is published, test a replacement container against the copies. Verify login in two tabs, logout, file upload/download, overwrite/editor conflicts, TUS, proxy identity, shares and restart persistence. Only then repeat the backup and replace the live container. This preparation does not deploy anything.
+
+If recovery is necessary, stop ng.4 before restoring the **matching cold database/configuration and data snapshot** with ng.3. Do not run both against one tree or assume a binary downgrade rolls back new file contents. ng.3 lacks the fixes described here; recovery is an operational fallback, not a security remediation.
+
+## Migration from upstream File Browser v2.63.23
 
 1. Stop the upstream process. Back up its database, configuration, and data. Keep the backup outside the served tree.
 2. Pull the fork image (see [Docker and NAS](docker.md)) or build filebrowser-ng and point it at the same database and root. The database schema retains upstream users, permissions, settings, and shares, and adds a session bucket. Test with a copied database and data first.
@@ -27,7 +43,7 @@ See the [review](security/code-review-2026-10-21.md) for evidence and remaining 
 
 ## Unreleased local changes
 
-These changes follow `v2.64.0-ng.3` and are not yet available in a published image. No database schema, UID/GID, container path or deployment configuration change is required by this local patch set.
+These changes follow `v2.64.0-ng.3` and form the prepared ng.4 candidate. They are not yet available in a published image. UID/GID and container paths remain the same; persisted session records and HTTPS proxy/client configuration change as described above.
 
 - Copy requests without `override=true` return 409 if another operation creates a destination file before its writable open, including inside recursive copies. Modify permission alone does not opt into overwriting. Copying a file onto itself through a hardlink/symlink returns an error and preserves source contents. A failed Sync/Close during a cross-volume move retains the source; partial destination data may remain for recovery. Atomic rename and overwrite are still planned work.
 - TUS HEAD/PATCH/DELETE require the upload creator's account, in addition to existing permissions. A different account cannot take over an upload merely because it shares the directory; use a new upload or the ordinary permitted file operations. A replacement filesystem object at the same path causes 409. The creator can resume after session renewal. Adapters whose root lacks stable filesystem identity reject TUS creation with 501 before mutation; use regular uploads with such adapters. The created handle must also supply stable identity. OS-backed deployments retain TUS. Cache expiry and server restart still lose resumability and retain incomplete files on disk.

@@ -48,7 +48,7 @@ jobs:
     uses: ./.github/workflows/ci.yaml
     with:
       ref: ${{ needs.version.outputs.commit }}
-      linux_only: true
+      linux_only: false
 
   publish:
     needs: [version, verify]

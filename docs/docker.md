@@ -51,10 +51,14 @@ If your previous setup loaded `/config/settings.json`, mount that config directo
 
 For a read-only container root filesystem, retain writable mounts for the database and files and a writable `/tmp` (the examples use tmpfs). No `privileged` mode or added Linux capabilities are needed.
 
+## Prepared ng.4 upgrade
+
+The ng.4 image is not yet published. Existing pull/Compose examples deliberately stay on ng.3. Read the [ng.3-to-ng.4 migration steps](migration.md#upgrade-from-2640-ng3-to-2640-ng4-prepared) before a future upgrade: HTTPS proxy trust, fresh login, machine API headers and atomic-write permissions are material changes. Preserve the NAS process UID/GID (for the current Ugreen installation, 1000:1000); do not copy PUID/PGID variables into the scratch image.
+
 ## Upgrade
 
 Stop the service, back up the database and data together, update the image version in Compose, then run `docker compose pull` and `docker compose up -d`. Use `--env-file .env.nas -f compose.nas.yaml` with the NAS example. Keep the backup until you have verified the upgrade. Do not use `docker compose down -v` when upgrading: it deletes named volumes.
 
 ## Publish a release
 
-Push a tag such as `v2.64.0-ng.3`. The `Publish container` workflow first runs the reusable CI workflow (Go race tests on Linux, frontend checks, vulnerability checks, and native container startup tests on both architectures), then cross-compiles and publishes both platforms to GHCR. Its registry credential is the repository's short-lived `GITHUB_TOKEN`; no personal registry token is required. The full branch CI also tests macOS and Windows independently. To retry or publish an existing tag using the current workflow, dispatch it from the default branch with the `tag` input; both verification and image building check out the resolved tagged commit, not the default branch. A new GHCR package initially needs its visibility set to Public by its owner; verify an anonymous pull before announcing it.
+After approving the prepared candidate, push its exact tested version tag (next: `v2.64.0-ng.4`). The `Publish container` workflow first runs the reusable CI workflow (Go race tests on Linux/macOS/Windows, frontend and real multi-tab browser checks, vulnerability checks, and native non-root container migration/restart tests on both Linux architectures), then cross-compiles and publishes both platforms to GHCR. Its registry credential is the repository's short-lived `GITHUB_TOKEN`; no personal registry token is required. Publication waits for the full operating-system matrix, including native Windows atomic-file tests. Binary archive configuration is limited to Linux, macOS and Windows; BSD atomic-write support remains unimplemented. To retry or publish an existing tag using the current workflow, dispatch it from the default branch with the `tag` input; both verification and image building check out the resolved tagged commit, not the default branch. A new GHCR package initially needs its visibility set to Public by its owner; verify an anonymous pull before announcing it.
