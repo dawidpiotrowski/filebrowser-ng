@@ -1,11 +1,13 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { UploadOptions } from "tus-js-client";
-
-const { store, uploads } = vi.hoisted(() => ({
-  store: { jwt: "old" },
+const { mutationHeaders, uploads } = vi.hoisted(() => ({
+  mutationHeaders: vi.fn(),
   uploads: [] as UploadOptions[],
 }));
-vi.mock("@/stores/auth", () => ({ useAuthStore: () => store }));
+vi.mock("@/utils/auth", () => ({
+  mutationHeaders,
+  reconcileSession: vi.fn(async () => {}),
+}));
 vi.mock("@/utils/constants", () => ({
   baseURL: "",
   origin: "https://files.example.test",
@@ -22,28 +24,52 @@ vi.mock("tus-js-client", () => ({
   },
 }));
 import { upload } from "../tus";
-
 beforeEach(() => {
-  store.jwt = "old";
   uploads.length = 0;
+  mutationHeaders
+    .mockReset()
+    .mockResolvedValue({ "X-FB-CSRF": "proof", "X-FB-Session": "alice" });
 });
-
-it("uses the current session for each subsequent TUS request", async () => {
+it("binds all chunks to the original session, using CSRF instead of a bearer", async () => {
   const pending = upload(
     "/api/resources/file.txt",
     new Blob(["hello"]),
     false,
     undefined
   );
-  const options = uploads[0];
-  store.jwt = "renewed";
-  const headers = new Headers(options.headers);
+  await vi.waitFor(() => expect(uploads).toHaveLength(1));
+  const options = uploads[0],
+    headers = new Headers(options.headers);
   await options.onBeforeRequest?.({
-    setHeader: (name, value) => headers.set(name, value),
+    setHeader: (name, value) => headers.append(name, value),
   } as Parameters<NonNullable<UploadOptions["onBeforeRequest"]>>[0]);
-  expect(headers.get("X-Auth")).toBe("renewed");
+  expect(mutationHeaders).toHaveBeenLastCalledWith("alice");
+  expect(headers.get("X-FB-CSRF")).toBe("proof");
+  expect(headers.has("X-Auth")).toBe(false);
+  mutationHeaders.mockRejectedValueOnce(
+    new Error("Session changed; reload before continuing")
+  );
+  await expect(
+    options.onBeforeRequest?.({ setHeader: vi.fn() } as never)
+  ).rejects.toThrow("Session changed");
   options.onSuccess?.(
     {} as Parameters<NonNullable<UploadOptions["onSuccess"]>>[0]
   );
+  await pending;
+});
+it("never retries unauthorized chunks", async () => {
+  const pending = upload("/file.txt", new Blob(["hello"]), false, undefined);
+  await vi.waitFor(() => expect(uploads).toHaveLength(1));
+  const options = uploads[0];
+  for (const status of [401, 403, 409]) {
+    expect(
+      options.onShouldRetry?.(
+        { originalResponse: { getStatus: () => status } } as never,
+        0,
+        {} as never
+      )
+    ).toBe(false);
+  }
+  options.onSuccess?.({} as never);
   await pending;
 });

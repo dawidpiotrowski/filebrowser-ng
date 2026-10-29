@@ -107,6 +107,7 @@ func addServerFlags(flags *pflag.FlagSet) {
 	flags.String("socket", "", "socket to listen to (cannot be used with address, port, cert nor key flags)")
 	flags.StringP("baseURL", "b", "", "base url")
 	flags.String("tokenExpirationTime", "2h", "user session timeout")
+	flags.StringSlice("trustedProxies", nil, "proxy peer CIDRs allowed to assert X-Forwarded-Proto; proxy must preserve Host")
 	flags.Bool("disableThumbnails", false, "disable image thumbnails")
 	flags.Bool("disablePreviewResize", false, "disable resize of image previews")
 	flags.Bool("disableExec", true, "disables Command Runner feature")
@@ -336,6 +337,9 @@ func getServerSettings(v *viper.Viper, st *storage.Storage) (*settings.Server, e
 	if v.IsSet("tokenExpirationTime") {
 		server.TokenExpirationTime = v.GetString("tokenExpirationTime")
 	}
+	if v.IsSet("trustedProxies") {
+		server.TrustedProxies = v.GetStringSlice("trustedProxies")
+	}
 
 	if v.IsSet("disableThumbnails") {
 		server.EnableThumbnails = !v.GetBool("disableThumbnails")
@@ -478,6 +482,7 @@ func quickSetup(v *viper.Viper, s *storage.Storage) error {
 		Address:                v.GetString("address"),
 		Root:                   v.GetString("root"),
 		TokenExpirationTime:    v.GetString("tokenExpirationTime"),
+		TrustedProxies:         v.GetStringSlice("trustedProxies"),
 		EnableThumbnails:       !v.GetBool("disableThumbnails"),
 		ResizePreview:          !v.GetBool("disablePreviewResize"),
 		EnableExec:             !v.GetBool("disableExec"),

@@ -6,7 +6,10 @@ vi.mock("@/api/utils", () => ({
   removePrefix: (url: string) => url.replace("/files", ""),
   StatusError: class extends Error {},
 }));
-vi.mock("@/stores/auth", () => ({ useAuthStore: vi.fn() }));
+vi.mock("@/utils/auth", () => ({
+  mutationHeaders: vi.fn(),
+  reconcileSession: vi.fn(),
+}));
 vi.mock("@/stores/layout", () => ({ useLayoutStore: vi.fn() }));
 vi.mock("@/utils/constants", () => ({ baseURL: "" }));
 vi.mock("@/api/tus", () => ({ upload: vi.fn(), useTus: vi.fn() }));

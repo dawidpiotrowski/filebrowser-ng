@@ -1,144 +1,199 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { createSessionClient, type BrowserSession } from "../session";
 
-const { store, push } = vi.hoisted(() => ({
-  store: {
-    jwt: "old",
-    logoutTimer: null as number | null,
-    setUser: vi.fn(),
-    setLogoutTimer: vi.fn(),
-    clearUser: vi.fn(),
-  },
-  push: vi.fn(),
-}));
-vi.mock("@/stores/auth", () => ({ useAuthStore: () => store }));
-vi.mock("@/router", () => ({ default: { push } }));
-vi.mock("jwt-decode", () => ({
-  jwtDecode: () => ({ user: {}, exp: 2000000000 }),
-}));
-vi.mock("@/utils/constants", () => ({
-  baseURL: "",
-  noAuth: false,
-  authMethod: "json",
-  logoutPage: "/login",
-}));
-vi.mock("@/api/utils", () => ({
-  StatusError: class extends Error {},
-  setSafeTimeout: () => 1,
-}));
-import { logout, renew } from "../auth";
-
-describe("server-side session lifecycle", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    store.jwt = "old";
-    vi.stubGlobal("localStorage", {
-      setItem: vi.fn(),
-      getItem: vi.fn(() => "old"),
+const anonymous = (): BrowserSession => ({
+  authenticated: false,
+  user: null,
+  csrfToken: "",
+  loginCSRF: "challenge-proof",
+  sessionVersion: "",
+  expires: 0,
+  absoluteExpires: 0,
+});
+const authenticated = (version = "alice"): BrowserSession => ({
+  ...anonymous(),
+  authenticated: true,
+  user: { username: version } as IUser,
+  csrfToken: `csrf-${version}`,
+  sessionVersion: version,
+  expires: 2000000000,
+  absoluteExpires: 2000086400,
+});
+function fixture() {
+  let state = authenticated();
+  const calls: { path: string; init: RequestInit }[] = [];
+  const fetch = vi.fn(
+    async (url: string | URL | Request, init: RequestInit = {}) => {
+      const path = String(url).split("/").pop()!;
+      calls.push({ path, init });
+      if (path === "session") return Response.json(state);
+      if (path === "logout") {
+        state = anonymous();
+        return new Response(null, { status: 204 });
+      }
+      if (path === "login") state = authenticated("bob");
+      return Response.json(state);
+    }
+  );
+  const makeClient = () =>
+    createSessionClient({
+      baseURL: "/browser",
+      fetch,
+      changed: vi.fn(),
+      notify: vi.fn(),
     });
+  return {
+    makeClient,
+    calls,
+    fetch,
+    setState(next: BrowserSession) {
+      state = next;
+    },
+  };
+}
+
+describe("HttpOnly session coordination", () => {
+  it("uses cookies and CSRF, never a bearer credential", async () => {
+    const f = fixture(),
+      client = f.makeClient();
+    await client.renew();
+    const renewal = f.calls.find((c) => c.path === "renew")!;
+    expect(renewal.init.credentials).toBe("same-origin");
+    expect(renewal.init.headers).toMatchObject({
+      "X-FB-CSRF": "csrf-alice",
+      "X-FB-Session": "alice",
+    });
+    expect(JSON.stringify(f.calls)).not.toContain("X-Auth");
   });
-  it("serializes concurrent renewal requests", async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue({ status: 200, text: async () => "new" });
-    vi.stubGlobal("fetch", fetch);
-    await Promise.all([renew("old"), renew("old")]);
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(store.jwt).toBe("new");
+  it("deduplicates renewal in one tab", async () => {
+    const f = fixture(),
+      client = f.makeClient();
+    await Promise.all([client.renew(), client.renew()]);
+    expect(f.calls.filter((c) => c.path === "renew")).toHaveLength(1);
   });
-  it("waits for server revocation before clearing local state", async () => {
-    let finish!: (value: { ok: boolean; status: number }) => void;
-    const fetch = vi.fn(
+  it("two tabs renew concurrently without invalidating proofs", async () => {
+    const f = fixture(),
+      a = f.makeClient(),
+      b = f.makeClient();
+    await Promise.all([a.bootstrap(), b.bootstrap()]);
+    await Promise.all([a.renew(), b.renew()]);
+    expect(await a.mutationHeaders()).toEqual(await b.mutationHeaders());
+  });
+  it("another tab reconciles logout using the shared cookie, not a message payload", async () => {
+    const f = fixture(),
+      a = f.makeClient(),
+      b = f.makeClient();
+    await Promise.all([a.bootstrap(), b.bootstrap()]);
+    await a.logout();
+    await b.synchronize();
+    expect(b.current()?.authenticated).toBe(false);
+    await expect(b.mutationHeaders()).rejects.toMatchObject({ status: 401 });
+  });
+  it("keeps state if revocation fails and does not announce success", async () => {
+    const f = fixture(),
+      client = f.makeClient();
+    await client.bootstrap();
+    const original = f.fetch.getMockImplementation()!;
+    f.fetch.mockImplementation(async (url, init) => {
+      if (String(url).endsWith("logout")) throw new Error("offline");
+      return original(url, init);
+    });
+    await expect(client.logout()).rejects.toThrow("offline");
+    expect(client.current()?.authenticated).toBe(true);
+  });
+  it("does not overwrite a new login with a delayed bootstrap response", async () => {
+    const f = fixture(),
+      client = f.makeClient();
+    let finish!: (r: Response) => void;
+    f.fetch.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
           finish = resolve;
         })
     );
-    vi.stubGlobal("fetch", fetch);
-    const pending = logout();
-    expect(store.clearUser).not.toHaveBeenCalled();
-    finish({ ok: true, status: 204 });
-    await pending;
-    expect(fetch).toHaveBeenCalledWith(
-      "/api/logout",
-      expect.objectContaining({ method: "POST" })
-    );
-    expect(store.clearUser).toHaveBeenCalledTimes(1);
-  });
-  it("retains local state when server revocation fails", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
-    await expect(logout()).rejects.toThrow("offline");
-    expect(store.clearUser).not.toHaveBeenCalled();
-  });
-  it("does not let a delayed 401 revoke a session renewed in flight", async () => {
-    let finish!: (value: {
-      status: number;
-      text: () => Promise<string>;
-    }) => void;
-    const fetch = vi
-      .fn()
-      .mockImplementationOnce(
-        () => new Promise((resolve) => (finish = resolve))
-      )
-      .mockResolvedValue({ status: 401 });
-    vi.stubGlobal("fetch", fetch);
-    const renewing = renew("old");
-    const loggingOut = logout(undefined, "old");
-    finish({ status: 200, text: async () => "new" });
-    await renewing;
-    await loggingOut;
-    expect(fetch).toHaveBeenCalledTimes(1);
-    expect(store.jwt).toBe("new");
-    expect(store.clearUser).not.toHaveBeenCalled();
-  });
-  it("still revokes the replacement on manual logout during renewal", async () => {
-    let finish!: (value: {
-      status: number;
-      text: () => Promise<string>;
-    }) => void;
-    const fetch = vi
-      .fn()
-      .mockImplementationOnce(
-        () => new Promise((resolve) => (finish = resolve))
-      )
-      .mockResolvedValue({ status: 204, ok: true });
-    vi.stubGlobal("fetch", fetch);
-    const renewing = renew("old");
-    const loggingOut = logout();
-    finish({ status: 200, text: async () => "new" });
-    await Promise.all([renewing, loggingOut]);
-    expect(fetch).toHaveBeenLastCalledWith(
-      "/api/logout",
-      expect.objectContaining({ headers: { "X-Auth": "new" } })
-    );
-    expect(store.clearUser).toHaveBeenCalledTimes(1);
+    const old = client.bootstrap();
+    f.setState(authenticated("bob"));
+    await client.synchronize();
+    finish(Response.json(authenticated("alice")));
+    await old;
+    expect(client.current()?.sessionVersion).toBe("bob");
   });
   it("does not clear a new login after a delayed logout response", async () => {
-    let finish!: (value: { status: number; ok: boolean }) => void;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => new Promise((resolve) => (finish = resolve)))
-    );
-    const pending = logout();
-    store.jwt = "different-login";
-    finish({ status: 204, ok: true });
+    const f = fixture(),
+      client = f.makeClient();
+    await client.bootstrap();
+    let finish!: (r: Response) => void;
+    const original = f.fetch.getMockImplementation()!;
+    f.fetch.mockImplementation(async (url, init) => {
+      if (String(url).endsWith("logout"))
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      return original(url, init);
+    });
+    const pending = client.logout();
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    f.setState(authenticated("bob"));
+    finish(new Response(null, { status: 204 }));
     await pending;
-    expect(store.clearUser).not.toHaveBeenCalled();
-    expect(store.jwt).toBe("different-login");
+    expect(client.current()?.sessionVersion).toBe("bob");
+    await expect(client.mutationHeaders()).rejects.toMatchObject({
+      status: 401,
+    });
   });
-  it("does not overwrite a new login with an earlier renewal response", async () => {
-    let finish!: (value: {
-      status: number;
-      text: () => Promise<string>;
-    }) => void;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => new Promise((resolve) => (finish = resolve)))
+  it("blocks queued uploads after account switching even if reload is cancelled", async () => {
+    const f = fixture(),
+      client = f.makeClient();
+    await client.bootstrap();
+    f.setState(authenticated("bob"));
+    await client.synchronize();
+    await expect(client.mutationHeaders("alice")).rejects.toMatchObject({
+      status: 401,
+    });
+    await expect(client.mutationHeaders()).rejects.toMatchObject({
+      status: 401,
+    });
+  });
+  it("serializes logout after in-flight renewal and revokes the shared session", async () => {
+    const f = fixture(),
+      client = f.makeClient();
+    await Promise.all([client.renew(), client.logout()]);
+    expect(
+      f.calls.filter((c) => c.path !== "session").map((c) => c.path)
+    ).toEqual(["renew", "logout"]);
+    expect(client.current()?.authenticated).toBe(false);
+  });
+  it("uses Web Locks when available, with bounded waiting", async () => {
+    const f = fixture();
+    const request = vi.fn(async (_name, _options, run) => run());
+    const client = createSessionClient({
+      baseURL: "/b",
+      fetch: f.fetch,
+      locks: { request },
+      changed: vi.fn(),
+      notify: vi.fn(),
+    });
+    await client.renew();
+    expect(request).toHaveBeenCalledWith(
+      "filebrowser-ng/session:/b",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.any(Function)
     );
-    const pending = renew("old");
-    store.jwt = "different-login";
-    finish({ status: 200, text: async () => "renewed-old-login" });
-    await pending;
-    expect(store.jwt).toBe("different-login");
-    expect(store.setUser).not.toHaveBeenCalled();
+  });
+  it("does not extend idle expiry on background probes", async () => {
+    const f = fixture(),
+      client = f.makeClient();
+    await client.synchronize();
+    await client.synchronize();
+    expect(f.calls.every((c) => c.path === "session")).toBe(true);
+  });
+  it("ignores expiry hints from another account and caps trusted hints", async () => {
+    const f = fixture(),
+      client = f.makeClient();
+    await client.bootstrap();
+    client.observeExpiry("bob", 3000000000);
+    expect(client.current()?.expires).toBe(2000000000);
+    client.observeExpiry("alice", 3000000000);
+    expect(client.current()?.expires).toBe(2000086400);
   });
 });

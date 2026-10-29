@@ -6,20 +6,21 @@ export const useAuthStore = defineStore("auth", {
   // convert to a function
   state: (): {
     user: IUser | null;
-    jwt: string;
+    sessionVersion: string;
+    csrfToken: string;
     logoutTimer: number | null;
   } => ({
     user: null,
-    jwt: "",
+    sessionVersion: "",
+    csrfToken: "",
     logoutTimer: null,
   }),
   getters: {
-    // user and jwt getter removed, no longer needed
     isLoggedIn: (state) => state.user !== null,
   },
   actions: {
     // no context as first argument, use `this` instead
-    setUser(user: IUser) {
+    setUser(user: IUser | null) {
       if (user === null) {
         this.user = null;
         return;

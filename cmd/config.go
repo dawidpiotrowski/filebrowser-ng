@@ -324,6 +324,8 @@ func getSettings(flags *pflag.FlagSet, set *settings.Settings, ser *settings.Ser
 			ser.BaseURL, err = flags.GetString(flag.Name)
 		case "tokenExpirationTime":
 			ser.TokenExpirationTime, err = flags.GetString(flag.Name)
+		case "trustedProxies":
+			ser.TrustedProxies, err = flags.GetStringSlice(flag.Name)
 		case "disableThumbnails":
 			ser.EnableThumbnails, err = flags.GetBool(flag.Name)
 			ser.EnableThumbnails = !ser.EnableThumbnails

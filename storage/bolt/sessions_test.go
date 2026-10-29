@@ -2,6 +2,7 @@ package bolt
 
 import (
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -80,5 +81,63 @@ func TestConsecutiveExpiredSharesAreRemovedWithoutSliceMutation(t *testing.T) {
 	links, err := store.Share.All()
 	if err != nil || len(links) != 1 || links[0].Hash != "valid" {
 		t.Fatalf("filtered: %#v %v", links, err)
+	}
+}
+
+func TestBrowserRefreshAndRevocationSurviveRestart(t *testing.T) {
+	name := filepath.Join(t.TempDir(), "db")
+	db, err := storm.Open(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := sessionBackend{db: db}
+	now := time.Now().Unix()
+	old := &sessions.Session{ID: "browser-hash", Kind: sessions.Browser, PublicID: "public-view", FamilyID: "family", UserID: 1, Credential: "hash", Expires: now + 600, AbsoluteExpires: now + 1000}
+	if err = backend.CreateBrowser("", old); err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			next, e := backend.Refresh(old.ID, old.Credential, now+10000)
+			if e != nil {
+				t.Error(e)
+			} else if next.Expires != old.AbsoluteExpires {
+				t.Error("absolute expiry exceeded")
+			}
+		}()
+	}
+	wg.Wait()
+	if _, err = backend.Refresh(old.ID, "wrong", now+900); err == nil {
+		t.Fatal("wrong credential refreshed")
+	}
+	if err = db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err = storm.Open(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	backend.db = db
+	if next, err := backend.Get(old.ID); err != nil || next.PublicID != old.PublicID || next.Expires != old.AbsoluteExpires {
+		t.Fatal("refresh not persisted", err)
+	}
+	if err = backend.Delete(old.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = backend.Refresh(old.ID, old.Credential, now+900); err == nil {
+		t.Fatal("revoked browser session revived")
+	}
+	// Even a future idle expiry cannot bypass the absolute cap.
+	old.AbsoluteExpires = now - 1
+	old.Expires = now + 1000
+	if err = db.Save(old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = backend.Get(old.ID); err == nil {
+		t.Fatal("absolute expiry ignored")
 	}
 }

@@ -198,7 +198,7 @@ func authenticateShareRequest(w http.ResponseWriter, r *http.Request, d *data, l
 	}
 	http.SetCookie(w, &http.Cookie{Name: shareCookieName(l.Hash), Value: signed,
 		Path: strings.TrimRight(d.server.BaseURL, "/") + "/api/public/", Expires: expires,
-		HttpOnly: true, Secure: secureRequest(r), SameSite: http.SameSiteStrictMode})
+		HttpOnly: true, Secure: secureBrowserRequest(r, d), SameSite: http.SameSiteStrictMode})
 	return 0, nil
 }
 

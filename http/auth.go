@@ -16,7 +16,6 @@ import (
 	fbAuth "github.com/dawidpiotrowski/filebrowser-ng/v2/auth"
 	fberrors "github.com/dawidpiotrowski/filebrowser-ng/v2/errors"
 	"github.com/dawidpiotrowski/filebrowser-ng/v2/sessions"
-	"github.com/dawidpiotrowski/filebrowser-ng/v2/settings"
 	"github.com/dawidpiotrowski/filebrowser-ng/v2/users"
 )
 
@@ -58,13 +57,6 @@ func (e extractor) ExtractToken(r *http.Request) (string, error) {
 		return token, nil
 	}
 
-	if r.Method == http.MethodGet {
-		cookie, _ := r.Cookie("auth")
-		if cookie != nil && strings.Count(cookie.Value, ".") == 2 {
-			return cookie.Value, nil
-		}
-	}
-
 	return "", request.ErrNoTokenInRequest
 }
 
@@ -97,12 +89,47 @@ func proxyAsserts(r *http.Request, d *data, id uint) bool {
 
 func withUser(fn handleFunc) handleFunc {
 	return func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+		name, _ := cookieScope(r, d, "session")
+		for _, cookie := range r.Cookies() {
+			if cookie.Name == name && r.Header.Get("X-Auth") != "" {
+				return http.StatusBadRequest, nil
+			}
+		}
+		if r.Header.Get("X-Auth") == "" {
+			status, err := authenticateBrowser(r, d)
+			if status != 0 {
+				return status, err
+			}
+			if !safeMethod(r.Method) && !validSessionCSRF(r, d) {
+				return http.StatusForbidden, nil
+			}
+			// Reads caused by real application/media activity extend idle expiry.
+			// Bootstrap does not, so background tabs cannot keep a session alive.
+			idle := browserIdle(d)
+			if idle <= 0 {
+				return http.StatusInternalServerError, errors.New("invalid browser session timeout")
+			}
+			if time.Until(time.Unix(d.session.Expires, 0)) < idle/2 && d.session.Expires < d.session.AbsoluteExpires {
+				if err = refreshBrowser(d); err != nil {
+					if errors.Is(err, fberrors.ErrNotExist) {
+						return http.StatusUnauthorized, nil
+					}
+					return http.StatusInternalServerError, err
+				}
+			}
+			w.Header().Set("X-Session-Expires", time.Unix(d.session.Expires, 0).UTC().Format(time.RFC3339))
+			if d.store.Users.LastUpdate(d.user.ID) > d.session.Refreshed {
+				w.Header().Set("X-Renew-Token", "true")
+			}
+			canonicalizeRequestPath(r)
+			return fn(w, r, d)
+		}
 		keyFunc := func(_ *jwt.Token) (interface{}, error) {
 			return d.settings.Key, nil
 		}
 
 		var tk authToken
-		p := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired(), jwt.WithIssuer("filebrowser-ng"))
+		p := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired(), jwt.WithIssuer("filebrowser-ng"), jwt.WithAudience(apiAudience))
 		token, err := request.ParseFromRequest(r, &extractor{}, keyFunc, request.WithClaims(&tk), request.WithParser(p))
 		if err != nil || token == nil || !token.Valid || tk.ID == "" || d.store.Sessions == nil {
 			return http.StatusUnauthorized, nil
@@ -124,7 +151,7 @@ func withUser(fn handleFunc) handleFunc {
 		}
 
 		d.session, err = d.store.Sessions.Get(tk.ID)
-		if err != nil || d.session.UserID != d.user.ID || d.session.Credential != sessions.Credential(d.user) {
+		if err != nil || d.session.Kind != sessions.API || d.session.UserID != d.user.ID || d.session.Credential != sessions.Credential(d.user) {
 			return http.StatusUnauthorized, nil
 		}
 		if d.settings.AuthMethod == fbAuth.MethodProxyAuth && !proxyAsserts(r, d, tk.User.ID) {
@@ -148,6 +175,14 @@ func withAdmin(fn handleFunc) handleFunc {
 
 func loginHandler(tokenExpireTime time.Duration) handleFunc {
 	return func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+		api := r.Header.Get("X-FB-Client") == "api"
+		if api {
+			if !apiEntry(r) {
+				return http.StatusForbidden, nil
+			}
+		} else if !validLoginCSRF(r, d) {
+			return http.StatusForbidden, nil
+		}
 		if r.Body != nil {
 			r.Body = http.MaxBytesReader(w, r.Body, maxAuthBodySize)
 		}
@@ -165,7 +200,10 @@ func loginHandler(tokenExpireTime time.Duration) handleFunc {
 			return http.StatusInternalServerError, err
 		}
 
-		return printToken(w, r, d, user, tokenExpireTime)
+		if api {
+			return printToken(w, r, d, user, tokenExpireTime)
+		}
+		return issueBrowser(w, r, d, user)
 	}
 }
 
@@ -175,6 +213,9 @@ type signupBody struct {
 }
 
 var signupHandler = func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	if !apiEntry(r) && !validLoginCSRF(r, d) {
+		return http.StatusForbidden, nil
+	}
 	if !d.settings.Signup {
 		return http.StatusMethodNotAllowed, nil
 	}
@@ -242,6 +283,15 @@ var signupHandler = func(w http.ResponseWriter, r *http.Request, d *data) (int, 
 func renewHandler(tokenExpireTime time.Duration) handleFunc {
 	return withUser(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
 		w.Header().Set("X-Renew-Token", "false")
+		if d.browser {
+			if err := refreshBrowser(d); err != nil {
+				if errors.Is(err, fberrors.ErrNotExist) {
+					return http.StatusUnauthorized, nil
+				}
+				return http.StatusInternalServerError, err
+			}
+			return writeBrowserState(w, r, d)
+		}
 		return printToken(w, r, d, d.user, tokenExpireTime)
 	})
 }
@@ -251,7 +301,7 @@ func printToken(w http.ResponseWriter, r *http.Request, d *data, user *users.Use
 		return http.StatusInternalServerError, errors.New("invalid session configuration")
 	}
 	now := time.Now()
-	session := &sessions.Session{ID: rand.Text(), UserID: user.ID, Credential: sessions.Credential(user), Expires: now.Add(tokenExpirationTime).Unix()}
+	session := &sessions.Session{ID: rand.Text(), Kind: sessions.API, UserID: user.ID, Credential: sessions.Credential(user), Expires: now.Add(tokenExpirationTime).Unix()}
 	claims := &authToken{
 		User: userInfo{
 			ID:                    user.ID,
@@ -268,6 +318,7 @@ func printToken(w http.ResponseWriter, r *http.Request, d *data, user *users.Use
 			AceEditorTheme:        user.AceEditorTheme,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
+			Audience:  jwt.ClaimStrings{apiAudience},
 			ID:        session.ID,
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(tokenExpirationTime)),
@@ -293,9 +344,6 @@ func printToken(w http.ResponseWriter, r *http.Request, d *data, user *users.Use
 		return http.StatusInternalServerError, err
 	}
 
-	if r != nil {
-		setAuthCookie(w, r, d.server, signed, time.Unix(session.Expires, 0))
-	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "text/plain")
 	if _, err := w.Write([]byte(signed)); err != nil {
@@ -308,20 +356,8 @@ var logoutHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *dat
 	if err := d.store.Sessions.Delete(d.session.ID); err != nil {
 		return http.StatusInternalServerError, err
 	}
-	setAuthCookie(w, r, d.server, "", time.Unix(1, 0))
+	// Do not clear a cookie by name: a delayed logout response could otherwise
+	// erase a newer login in another tab. The persisted revocation is decisive.
 	w.Header().Set("Cache-Control", "no-store")
 	return http.StatusNoContent, nil
 })
-
-func secureRequest(r *http.Request) bool {
-	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
-}
-
-func setAuthCookie(w http.ResponseWriter, r *http.Request, server *settings.Server, token string, expires time.Time) {
-	cookie := &http.Cookie{Name: "auth", Value: token, Path: strings.TrimRight(server.BaseURL, "/") + "/",
-		HttpOnly: true, Secure: secureRequest(r), SameSite: http.SameSiteStrictMode, Expires: expires}
-	if token == "" {
-		cookie.MaxAge = -1
-	}
-	http.SetCookie(w, cookie)
-}

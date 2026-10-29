@@ -28,6 +28,7 @@ type data struct {
 	user     *users.User
 	raw      interface{}
 	session  *sessions.Session
+	browser  bool
 
 	// checkerPrefix is prepended to every path before evaluating rules. It is
 	// set when the user's filesystem has been rebased onto a subdirectory (as

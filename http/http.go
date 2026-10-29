@@ -2,7 +2,9 @@ package fbhttp
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
+	"net/netip"
 
 	"github.com/dawidpiotrowski/filebrowser-ng/v2/auth"
 	"net/http"
@@ -29,6 +31,11 @@ func NewHandler(
 	server *settings.Server,
 	assetsFs fs.FS,
 ) (http.Handler, error) {
+	for _, cidr := range server.TrustedProxies {
+		if _, err := netip.ParsePrefix(cidr); err != nil {
+			return nil, fmt.Errorf("invalid trustedProxies CIDR %q: %w", cidr, err)
+		}
+	}
 	server.EnableExec = false
 	set, err := store.Settings.Get()
 	if err != nil {
@@ -54,6 +61,7 @@ func NewHandler(
 	api := r.PathPrefix("/api").Subrouter()
 
 	tokenExpirationTime := server.GetTokenExpirationTime(DefaultTokenExpirationTime)
+	api.Handle("/session", monkey(browserSessionHandler, "")).Methods("GET")
 	api.Handle("/login", monkey(limitAuthentication(loginHandler(tokenExpirationTime)), "")).Methods("POST")
 	api.Handle("/signup", monkey(limitAuthentication(signupHandler), "")).Methods("POST")
 	api.Handle("/logout", monkey(logoutHandler, "")).Methods("POST")

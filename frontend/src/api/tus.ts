@@ -1,6 +1,6 @@
 import * as tus from "tus-js-client";
 import { baseURL, tusEndpoint, tusSettings, origin } from "@/utils/constants";
-import { useAuthStore } from "@/stores/auth";
+import { mutationHeaders, reconcileSession } from "@/utils/auth";
 import { removePrefix } from "@/api/utils";
 
 const RETRY_BASE_DELAY = 1000;
@@ -21,7 +21,8 @@ export async function upload(
   filePath = removePrefix(filePath);
   const resourcePath = `${tusEndpoint}${filePath}?override=${overwrite}`;
 
-  const authStore = useAuthStore();
+  const initialHeaders = await mutationHeaders();
+  const version = initialHeaders["X-FB-Session"];
 
   // Exit early because of typescript, tus content can't be a string
   if (content === "") {
@@ -34,12 +35,12 @@ export async function upload(
       retryDelays: computeRetryDelays(tusSettings),
       parallelUploads: 1,
       storeFingerprintForResuming: false,
-      headers: {
-        "X-Auth": authStore.jwt,
-      },
-      onBeforeRequest: function (request) {
-        // Renewal consumes the previous session; long uploads need its successor.
-        request.setHeader("X-Auth", authStore.jwt);
+      // XMLHttpRequest appends duplicate header values. Set each proof once,
+      // exclusively in the hook that also checks the original session.
+      onBeforeRequest: async function (request) {
+        const proof = await mutationHeaders(version);
+        for (const [name, value] of Object.entries(proof))
+          request.setHeader(name, value);
       },
       onShouldRetry: function (err) {
         const status = err.originalResponse
@@ -47,7 +48,13 @@ export async function upload(
           : 0;
 
         // Do not retry for file conflict.
-        if (status === 409) {
+        if (status === 401 || status === 403)
+          void reconcileSession().catch(() => {});
+        if (
+          [401, 403, 409].includes(status) ||
+          err.causingError?.message ===
+            "Session changed; reload before continuing"
+        ) {
           return false;
         }
 

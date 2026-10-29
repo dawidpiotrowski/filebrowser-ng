@@ -1,4 +1,4 @@
-import { useAuthStore } from "@/stores/auth";
+import { mutationHeaders, reconcileSession } from "@/utils/auth";
 import { useLayoutStore } from "@/stores/layout";
 import { baseURL } from "@/utils/constants";
 import { upload as postTus, useTus } from "./tus";
@@ -145,7 +145,7 @@ async function postResources(
     bufferContent = await new Response(content).arrayBuffer();
   }
 
-  const authStore = useAuthStore();
+  const headers = await mutationHeaders();
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open(
@@ -153,13 +153,16 @@ async function postResources(
       `${baseURL}/api/resources${url}?override=${overwrite}`,
       true
     );
-    request.setRequestHeader("X-Auth", authStore.jwt);
+    for (const [name, value] of Object.entries(headers))
+      request.setRequestHeader(name, value);
 
     if (typeof onupload === "function") {
       request.upload.onprogress = onupload;
     }
 
     request.onload = () => {
+      if (request.status === 401 || request.status === 403)
+        void reconcileSession().catch(() => {});
       if (request.status === 200) {
         resolve(request.responseText);
       } else if (request.status === 409) {
