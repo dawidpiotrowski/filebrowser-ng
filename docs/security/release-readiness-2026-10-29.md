@@ -40,3 +40,7 @@ The user decides when to push the prepared source and run CI. The publish workfl
 The user also verifies the actual Ugreen proxy peer CIDRs, forwarded scheme/Host handling, ownership/ACLs, free space and representative filesystem operations using copied data. Take a cold database/configuration backup and matching data snapshot before a live upgrade. Storage power-loss behavior is not established by atomic-visibility tests.
 
 After a future successful publication, record its source revision and registry digest, check anonymous pulls for both architectures, and update the versioned installation examples. Keep the OCI provenance/SBOM entries; their metadata manifests are separate from runnable platform images. The NAS deployment remains a separate user action.
+
+## Publication authorization — 2026-10-29
+
+The user subsequently authorized publishing release 2.64.0-ng.4 and the GHCR image. This supersedes the local-only publication restriction above. CI and registry verification are part of publication; NAS deployment and starting VMs remain excluded. The GitHub release will record the final source SHA, successful publication workflow and registry digest. The checks above remain a historical preparation record.

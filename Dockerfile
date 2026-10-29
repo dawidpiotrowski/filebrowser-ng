@@ -17,7 +17,7 @@ COPY --from=frontend /src/frontend/dist ./frontend/dist
 RUN CGO_ENABLED=0 go test ./...
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=2.64.0-ng.4-dev
+ARG VERSION=2.64.0-ng.4
 ARG VCS_REF=unknown
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath \
     -ldflags="-s -w -X github.com/dawidpiotrowski/filebrowser-ng/v2/version.Version=${VERSION} -X github.com/dawidpiotrowski/filebrowser-ng/v2/version.CommitSHA=${VCS_REF}" \
@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath \
     chown -R 65532:65532 /runtime
 
 FROM scratch
-ARG VERSION=2.64.0-ng.4-dev
+ARG VERSION=2.64.0-ng.4
 ARG VCS_REF=unknown
 ARG BUILD_DATE
 LABEL org.opencontainers.image.title="filebrowser-ng" \

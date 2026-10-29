@@ -3,7 +3,7 @@
 Registry: [ghcr.io/dawidpiotrowski/filebrowser-ng](https://github.com/dawidpiotrowski/filebrowser-ng/pkgs/container/filebrowser-ng). Public pulls require no login. Images support Linux `amd64` (Intel/AMD NAS) and `arm64` (64-bit ARM NAS); Docker selects the matching platform. 32-bit ARM is not currently published.
 
 ```sh
-docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.3
+docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.4
 ```
 
 Use a numbered version in production. `latest` follows the most recently published release. The workflow also publishes `sha-<full-git-commit>` and records an immutable multi-platform digest in its summary. To pin a digest, use `ghcr.io/dawidpiotrowski/filebrowser-ng@sha256:…`. Image labels identify the version, source, and commit; BuildKit publishes provenance and SBOM attestations alongside the image.
@@ -35,7 +35,7 @@ The database directory and served files must be writable by the selected UID/GID
 
 ### Adapt an existing Compose or NAS container UI
 
-Change the image to `ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.3` and map your current host port to container port **8080**. Preserve the existing file/database mounts and set the UID/GID. A port mapping that previously ended in `:80` must end in `:8080`.
+Change the image to `ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.4` and map your current host port to container port **8080**. Preserve the existing file/database mounts and set the UID/GID. A port mapping that previously ended in `:80` must end in `:8080`.
 
 The default command is:
 
@@ -51,9 +51,9 @@ If your previous setup loaded `/config/settings.json`, mount that config directo
 
 For a read-only container root filesystem, retain writable mounts for the database and files and a writable `/tmp` (the examples use tmpfs). No `privileged` mode or added Linux capabilities are needed.
 
-## Prepared ng.4 upgrade
+## ng.4 upgrade
 
-The ng.4 image is not yet published. Existing pull/Compose examples deliberately stay on ng.3. Read the [ng.3-to-ng.4 migration steps](migration.md#upgrade-from-2640-ng3-to-2640-ng4-prepared) before a future upgrade: HTTPS proxy trust, fresh login, machine API headers and atomic-write permissions are material changes. Preserve the NAS process UID/GID (for the current Ugreen installation, 1000:1000); do not copy PUID/PGID variables into the scratch image.
+Read the [ng.3-to-ng.4 migration steps](migration.md#upgrade-from-2640-ng3-to-2640-ng4-prepared) before upgrading: HTTPS proxy trust, fresh login, machine API headers and atomic-write permissions are material changes. Preserve the NAS process UID/GID (for the current Ugreen installation, 1000:1000); do not copy PUID/PGID variables into the scratch image.
 
 ## Upgrade
 
@@ -61,4 +61,4 @@ Stop the service, back up the database and data together, update the image versi
 
 ## Publish a release
 
-After approving the prepared candidate, push its exact tested version tag (next: `v2.64.0-ng.4`). The `Publish container` workflow first runs the reusable CI workflow (Go race tests on Linux, frontend and real multi-tab browser checks, vulnerability checks, and native non-root container migration/restart tests on both Linux architectures), then cross-compiles and publishes both platforms to GHCR. Its registry credential is the repository's short-lived `GITHUB_TOKEN`; no personal registry token is required. Publication requires the Linux release checks. Windows/macOS checks remain in branch CI and do not block Linux image publication. Binary archive configuration is limited to Linux, macOS and Windows; BSD atomic-write support remains unimplemented. To retry or publish an existing tag using the current workflow, dispatch it from the default branch with the `tag` input; both verification and image building check out the resolved tagged commit, not the default branch. A new GHCR package initially needs its visibility set to Public by its owner; verify an anonymous pull before announcing it.
+Push the exact tested version tag (for this release: `v2.64.0-ng.4`). The `Publish container` workflow first runs the reusable CI workflow (Go race tests on Linux, frontend and real multi-tab browser checks, vulnerability checks, and native non-root container migration/restart tests on both Linux architectures), then cross-compiles and publishes both platforms to GHCR. Its registry credential is the repository's short-lived `GITHUB_TOKEN`; no personal registry token is required. Publication requires the Linux release checks. Windows/macOS checks remain in branch CI and do not block Linux image publication. Binary archive configuration is limited to Linux, macOS and Windows; BSD atomic-write support remains unimplemented. To retry or publish an existing tag using the current workflow, dispatch it from the default branch with the `tag` input; both verification and image building check out the resolved tagged commit, not the default branch. A new GHCR package initially needs its visibility set to Public by its owner; verify an anonymous pull before announcing it.

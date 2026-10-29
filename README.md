@@ -6,14 +6,14 @@ This fork starts with a security hardening pass. Read the [audit and advisory in
 
 The [follow-up code review](docs/security/code-review-2026-10-21.md) documents additional fixes in 2.64.0-ng.3. The [security roadmap](docs/security/roadmap.md) covers browser sessions, safe file commits, CSP, MFA and resource limits.
 
-The next version, **2.64.0-ng.4**, is [prepared locally](docs/releases/2.64.0-ng.4.md), with HttpOnly/CSRF sessions and atomic file writes. It is not yet published; the image below remains the latest published release.
+**2.64.0-ng.4** adds HttpOnly/CSRF sessions and atomic file writes. Read the [release notes](docs/releases/2.64.0-ng.4.md) and [upgrade instructions](docs/migration.md) before updating an existing installation.
 
 ## Docker / NAS
 
 Public images for Linux `amd64` and `arm64` are published to [GHCR](https://github.com/dawidpiotrowski/filebrowser-ng/pkgs/container/filebrowser-ng):
 
 ```sh
-docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.3
+docker pull ghcr.io/dawidpiotrowski/filebrowser-ng:2.64.0-ng.4
 docker compose up -d
 ```
 

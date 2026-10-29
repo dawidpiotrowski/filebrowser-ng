@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. See [commit-and-tag-version](https://github.com/absolute-version/commit-and-tag-version) for commit guidelines.
 
-## 2.64.0-ng.4 — prepared, not published (2026-10-29)
+## [2.64.0-ng.4](https://github.com/dawidpiotrowski/filebrowser-ng/compare/v2.64.0-ng.3...v2.64.0-ng.4) (2026-10-29)
 
 ### Security
 
@@ -23,7 +23,7 @@ All notable changes to this project will be documented in this file. See [commit
 * Atomic replacement requires directory write/delete rights and temporary space. Review hardlink, staging-name, upload-restart and rollback changes before upgrading.
 * Gate container publication on Linux verification, real multi-tab browser tests and non-root container migration/restart tests on both Linux architectures. Other operating systems remain in branch CI and do not block Linux image publication.
 
-[Prepared release notes](docs/releases/2.64.0-ng.4.md), [migration](docs/migration.md), [atomic mutation review](docs/security/atomic-writes-2026-10-21.md), [browser sessions](docs/security/browser-sessions-2026-10-29.md). No ng.4 image, tag or release has been published.
+[Release notes](docs/releases/2.64.0-ng.4.md), [migration](docs/migration.md), [atomic mutation review](docs/security/atomic-writes-2026-10-21.md), [browser sessions](docs/security/browser-sessions-2026-10-29.md).
 
 ## [2.64.0-ng.3](https://github.com/dawidpiotrowski/filebrowser-ng/compare/v2.64.0-ng.2...v2.64.0-ng.3) (2026-10-21)
 
